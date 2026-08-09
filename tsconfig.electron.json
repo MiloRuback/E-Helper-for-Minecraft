@@ -12,6 +12,7 @@
     "types": ["node"]
   },
   "include": [
+    "src/main/blueprintNbt.ts",
     "src/main/main.ts",
     "src/main/preload.ts",
     "src/shared/contracts.ts"

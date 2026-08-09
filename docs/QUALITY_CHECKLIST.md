@@ -14,10 +14,12 @@ Use esta lista antes de apresentar ou publicar uma release.
 - [x] Configuracoes exportam/restauram backup local.
 - [x] Supabase schema aplicado com RLS no projeto conectado.
 - [x] Supabase URL e publishable key publicas configuradas no app e em `.env.example`.
+- [x] Supabase security advisors sem findings apos migration de hardening.
 - [x] UI possui login/cadastro Supabase e sync de perfil/settings.
 - [x] Google Drive OAuth/backup/restore implementado no main process.
 - [x] Microsoft/Xbox/Minecraft OAuth implementado no main process.
 - [x] Importacao real de `.litematic`, `.schem` e `.nbt` Java Structure via conversor.
+- [x] Exportacao de blueprint em Java Structure `.nbt` validada por round-trip NBT.
 - [x] QA visual Playwright desktop/mobile sem overflow em 16 combinacoes de tela/pagina.
 - [x] Smoke test do executavel empacotado.
 - [ ] Testar instalador em uma maquina Windows limpa.

@@ -9,7 +9,7 @@ Windows desktop app built with Electron, React, TypeScript and Vite. This delive
 - Frameless desktop window, dark mode, responsive layout and 800x500 minimum size.
 - First-run onboarding with local account, PT-BR/EN-US language and preferences.
 - 64x64 skin editor with brush, eraser, fill bucket, eyedropper, base/overlay layers, symmetry, undo/redo, Steve/Alex templates, PNG import/export and `skinview3d` preview.
-- Blueprint editor with Y-layer grid, block palette, Three.js 3D preview, `.every-blueprint.json` import/export and `.litematic`, `.schem`, Java Structure `.nbt` import.
+- Blueprint editor with Y-layer grid, block palette, Three.js 3D preview, `.every-blueprint.json` import/export, Java Structure `.nbt` export and `.litematic`, `.schem`, Java Structure `.nbt` import.
 - Deterministic offline Seed Map with seed, version, pan, zoom, coordinates, biomes and structure markers.
 - Java world-folder importer with `level.dat` reading, `.mca` chunk counting and Overworld/Nether/End region view.
 - Modpack manager by folder, `.jar` listing, config/resourcepack/shaderpack counts and isolated Minecraft Launcher profile creation with `launcher_profiles.json` backup.
@@ -19,7 +19,7 @@ Windows desktop app built with Electron, React, TypeScript and Vite. This delive
 
 ## Real integrations
 
-- Supabase: project `ctqgcnsfdvxtnkejeusd` has the migration in `supabase/migrations/20260809142000_every_helper_initial_schema.sql`, with user-owned tables and RLS. The app is already prefilled with the public URL and publishable key.
+- Supabase: project `ctqgcnsfdvxtnkejeusd` has the migrations in `supabase/migrations/`, with user-owned tables, RLS, `user_id` indexes, hardened functions and zero security advisor findings. The app is already prefilled with the public URL and publishable key.
 - Google Drive: the app uses desktop OAuth with PKCE and `drive.file`, creates an `Every Helper` folder and uploads/restores JSON backups.
 - Microsoft/Minecraft: the app uses Microsoft OAuth, Xbox Live, XSTS and Minecraft Services to fetch UUID, username, skin and avatar when a Client ID is configured.
 - GitHub: the correct repo is `MiloRuback/E-Helper-for-Minecraft`, with a release workflow that builds the `.exe` installer.
@@ -32,10 +32,12 @@ Windows desktop app built with Electron, React, TypeScript and Vite. This delive
 
 Do not paste service role keys, client secrets, personal tokens or passwords into the app.
 
+See `docs/INTEGRATIONS_SETUP.md` for the setup steps.
+
 ## Remaining technical limits
 
 - Seed Map uses a deterministic offline generator. For exact Chunkbase parity, replace it with Cubiomes WASM.
-- Blueprint import supports `.litematic`, `.schem` and Java Structure `.nbt` through `@taku128/java-schematic`. Classic legacy `.schematic` is intentionally rejected by that converter.
+- Blueprint import supports `.litematic`, `.schem` and Java Structure `.nbt` through `@taku128/java-schematic`; export supports `.every-blueprint.json` and Java Structure `.nbt`. Classic legacy `.schematic` is intentionally rejected by that converter.
 
 ## Run locally
 
@@ -63,8 +65,8 @@ The NSIS installer is generated in `release/`.
 Create a tag to trigger the workflow:
 
 ```bash
-git tag v0.1.2
-git push origin v0.1.2
+git tag v0.1.3
+git push origin v0.1.3
 ```
 
 The `.github/workflows/release.yml` workflow builds on Windows and publishes the `.exe` as a release asset. If the repository stays private, the download link only works for authenticated users with repo access.

@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from "electron";
 import type {
   BridgeApi,
   BlueprintConvertRequest,
+  BlueprintExportRequest,
   DriveBackupRequest,
   DriveConnectRequest,
   LauncherProfileRequest,
@@ -21,6 +22,8 @@ const api: BridgeApi = {
   openMinecraftLauncher: () => ipcRenderer.invoke("modpack:open-launcher"),
   convertBlueprint: (request: BlueprintConvertRequest) =>
     ipcRenderer.invoke("blueprint:convert", request),
+  exportBlueprintNbt: (request: BlueprintExportRequest) =>
+    ipcRenderer.invoke("blueprint:export-nbt", request),
   connectGoogleDrive: (request: DriveConnectRequest) =>
     ipcRenderer.invoke("drive:connect", request),
   uploadDriveBackup: (request: DriveBackupRequest) =>

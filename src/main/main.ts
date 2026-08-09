@@ -6,10 +6,13 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import zlib from "node:zlib";
+import { exportBlueprintToNbt } from "./blueprintNbt.js";
 import type {
   CloudBackupPayload,
   BlueprintConvertRequest,
   BlueprintConvertResult,
+  BlueprintExportRequest,
+  BlueprintExportResult,
   DimensionSummary,
   DriveBackupRequest,
   DriveBackupResult,
@@ -221,6 +224,12 @@ ipcMain.handle(
       };
     }
   }
+);
+
+ipcMain.handle(
+  "blueprint:export-nbt",
+  async (_event, request: BlueprintExportRequest): Promise<BlueprintExportResult> =>
+    exportBlueprintToNbt(request)
 );
 
 ipcMain.handle(

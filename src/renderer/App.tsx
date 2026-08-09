@@ -382,6 +382,16 @@ function downloadTextFile(name: string, content: string, type = "application/jso
   URL.revokeObjectURL(url);
 }
 
+function downloadBinaryFile(name: string, bytes: number[], type = "application/octet-stream") {
+  const blob = new Blob([new Uint8Array(bytes)], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 function collectLocalBackupPayload(): CloudBackupPayload {
   const data: Record<string, unknown> = {};
   for (let i = 0; i < localStorage.length; i += 1) {
@@ -1376,6 +1386,23 @@ function BlueprintEditor({ language }: { language: Language }) {
     );
   }
 
+  async function exportBlueprintNbt() {
+    if (!window.everyHelper) {
+      alert("Exportacao NBT funciona dentro do app Electron.");
+      return;
+    }
+    const result = await window.everyHelper.exportBlueprintNbt({
+      name: blueprint.name,
+      size: blueprint.size,
+      blocks: blueprint.blocks
+    });
+    if (!result.ok || !result.fileName || !result.bytes) {
+      alert(result.message);
+      return;
+    }
+    downloadBinaryFile(result.fileName, result.bytes, "application/x-nbt");
+  }
+
   function importBlueprint(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -1484,7 +1511,10 @@ function BlueprintEditor({ language }: { language: Language }) {
           <Upload size={16} /> Importar
         </button>
         <button onClick={exportBlueprint}>
-          <Download size={16} /> Exportar
+          <Download size={16} /> Exportar JSON
+        </button>
+        <button onClick={exportBlueprintNbt}>
+          <Download size={16} /> Exportar NBT
         </button>
       </div>
 

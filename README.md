@@ -9,7 +9,7 @@ Aplicativo desktop para Windows feito com Electron, React, TypeScript e Vite. Es
 - Janela desktop sem borda, dark mode, layout responsivo e tamanho minimo 800x500.
 - Onboarding inicial com conta local, idioma PT-BR/EN-US e preferencias.
 - Editor de skins 64x64 com pincel, borracha, balde, conta-gotas, camadas base/overlay, simetria, undo/redo, templates Steve/Alex, importacao/exportacao PNG e preview 3D via `skinview3d`.
-- Editor de blueprints com grade por camada Y, paleta de blocos, preview 3D via Three.js, exportacao/importacao `.every-blueprint.json` e importacao de `.litematic`, `.schem` e Java Structure `.nbt`.
+- Editor de blueprints com grade por camada Y, paleta de blocos, preview 3D via Three.js, exportacao/importacao `.every-blueprint.json`, exportacao Java Structure `.nbt` e importacao de `.litematic`, `.schem` e Java Structure `.nbt`.
 - Seed Map offline deterministico com seed, versao, pan, zoom, coordenadas, biomas e marcadores de estrutura.
 - Importador de mundos Java por pasta, leitura de `level.dat`, contagem de chunks em regioes `.mca` e visualizacao por Overworld/Nether/End.
 - Gerenciador de modpacks por pasta, listagem de `.jar`, configs, resourcepacks, shaderpacks e criacao de perfil isolado no Minecraft Launcher com backup do `launcher_profiles.json`.
@@ -19,7 +19,7 @@ Aplicativo desktop para Windows feito com Electron, React, TypeScript e Vite. Es
 
 ## Integrações reais
 
-- Supabase: o projeto `ctqgcnsfdvxtnkejeusd` recebeu a migration em `supabase/migrations/20260809142000_every_helper_initial_schema.sql`, com tabelas e RLS para dados por usuario. A URL e a publishable key ja ficam preenchidas no app.
+- Supabase: o projeto `ctqgcnsfdvxtnkejeusd` recebeu as migrations em `supabase/migrations/`, com tabelas, RLS, indices de `user_id`, funcoes endurecidas e security advisors zerados. A URL e a publishable key ja ficam preenchidas no app.
 - Google Drive: o app usa OAuth de desktop com PKCE e escopo `drive.file`, cria a pasta `Every Helper` no Drive do usuario e faz backup/restauracao JSON.
 - Microsoft/Minecraft: o app usa OAuth Microsoft, Xbox Live, XSTS e Minecraft Services para obter UUID, username, skin e avatar quando o Client ID esta configurado.
 - GitHub: o repo correto e `MiloRuback/E-Helper-for-Minecraft`, com workflow de release para gerar o instalador `.exe`.
@@ -32,10 +32,12 @@ Aplicativo desktop para Windows feito com Electron, React, TypeScript e Vite. Es
 
 Nunca cole service role, client secret, senha ou token pessoal dentro do app.
 
+Veja o passo a passo em `docs/INTEGRATIONS_SETUP.md`.
+
 ## Limites técnicos ainda explícitos
 
 - Seed Map usa gerador offline deterministico. Para paridade exata com Chunkbase, o proximo passo e substituir o algoritmo por Cubiomes WASM.
-- A importacao de blueprint cobre `.litematic`, `.schem` e Java Structure `.nbt` via `@taku128/java-schematic`. O formato legado `.schematic` classico e rejeitado pelo conversor usado.
+- A importacao de blueprint cobre `.litematic`, `.schem` e Java Structure `.nbt` via `@taku128/java-schematic`; a exportacao cobre `.every-blueprint.json` e Java Structure `.nbt`. O formato legado `.schematic` classico e rejeitado pelo conversor usado.
 
 ## Como rodar no PC
 
@@ -74,8 +76,8 @@ VITE_MICROSOFT_CLIENT_ID=
 Crie uma tag para disparar o workflow:
 
 ```bash
-git tag v0.1.2
-git push origin v0.1.2
+git tag v0.1.3
+git push origin v0.1.3
 ```
 
 O workflow `.github/workflows/release.yml` compila no Windows e publica o `.exe` como asset da release. Se o repositorio continuar privado, o link de download so abre para usuarios autenticados com acesso ao repo.

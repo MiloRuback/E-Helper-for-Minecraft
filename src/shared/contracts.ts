@@ -92,6 +92,30 @@ export interface BlueprintConvertResult {
   }>;
 }
 
+export interface BlueprintExportRequest {
+  name: string;
+  size: {
+    x: number;
+    y: number;
+    z: number;
+  };
+  blocks: Array<{
+    x: number;
+    y: number;
+    z: number;
+    type: string;
+  }>;
+}
+
+export interface BlueprintExportResult {
+  ok: boolean;
+  message: string;
+  fileName?: string;
+  bytes?: number[];
+  blockCount?: number;
+  paletteCount?: number;
+}
+
 export interface CloudBackupPayload {
   app: "Every Helper for Minecraft";
   version: number;
@@ -147,6 +171,9 @@ export interface BridgeApi {
   convertBlueprint: (
     request: BlueprintConvertRequest
   ) => Promise<BlueprintConvertResult>;
+  exportBlueprintNbt: (
+    request: BlueprintExportRequest
+  ) => Promise<BlueprintExportResult>;
   connectGoogleDrive: (request: DriveConnectRequest) => Promise<DriveBackupResult>;
   uploadDriveBackup: (request: DriveBackupRequest) => Promise<DriveBackupResult>;
   restoreDriveBackup: (request: DriveConnectRequest) => Promise<DriveBackupResult>;
