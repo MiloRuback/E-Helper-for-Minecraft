@@ -4,12 +4,14 @@ Windows desktop app built with Electron, React, TypeScript and Vite. This delive
 
 [Download the Windows installer](https://github.com/MiloRuback/E-Helper-for-Minecraft/releases/latest)
 
+[README em Portugues](README.md)
+
 ## Included
 
 - Frameless desktop window, dark mode, responsive layout and 800x500 minimum size.
 - First-run onboarding with local account, PT-BR/EN-US language and preferences.
 - 64x64 skin editor with brush, eraser, fill bucket, eyedropper, base/overlay layers, symmetry, undo/redo, Steve/Alex templates, PNG import/export and `skinview3d` preview.
-- Blueprint editor with Y-layer grid, block palette, Three.js 3D preview, `.every-blueprint.json` import/export, Java Structure `.nbt` export, Sponge/WorldEdit `.schem` export and `.litematic`, `.schem`, Java Structure `.nbt` import.
+- Blueprint editor with Y-layer grid, block palette, Three.js 3D preview, `.every-blueprint.json` import/export, Java Structure `.nbt` export, Sponge/WorldEdit `.schem` export, Litematica `.litematic` export and `.litematic`, `.schem`, Java Structure `.nbt` import.
 - Offline Seed Map with Cubiomes WASM, seed, version, pan, zoom, coordinates, real biomes and structure markers.
 - Java world-folder importer with `level.dat` reading, `.mca` chunk counting, heightmap/biome sampling and Overworld/Nether/End region view.
 - Modpack manager by folder, `.jar` listing, config/resourcepack/shaderpack counts and isolated Minecraft Launcher profile creation with `launcher_profiles.json` backup.
@@ -37,7 +39,7 @@ See `docs/INTEGRATIONS_SETUP.md` for the setup steps.
 
 ## Remaining technical limits
 
-- Blueprint import supports `.litematic`, `.schem` and Java Structure `.nbt` through `@taku128/java-schematic`; export supports `.every-blueprint.json`, Java Structure `.nbt` and Sponge/WorldEdit `.schem`. Classic legacy `.schematic` is intentionally rejected by that converter.
+- Blueprint import supports `.litematic`, `.schem` and Java Structure `.nbt` through `@taku128/java-schematic`; export supports `.every-blueprint.json`, Java Structure `.nbt`, Sponge/WorldEdit `.schem` and Litematica `.litematic`. Classic legacy `.schematic` is intentionally rejected by that converter.
 
 ## Run locally
 
@@ -65,8 +67,8 @@ The NSIS installer is generated in `release/`.
 Create a tag to trigger the workflow:
 
 ```bash
-git tag v0.1.6
-git push origin v0.1.6
+git tag v0.1.9
+git push origin v0.1.9
 ```
 
 The `.github/workflows/release.yml` workflow builds on Windows and publishes the `.exe` as a release asset. If the repository stays private, the download link only works for authenticated users with repo access.

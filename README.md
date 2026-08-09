@@ -4,6 +4,8 @@ Aplicativo desktop para Windows feito com Electron, React, TypeScript e Vite. Es
 
 [Download do instalador Windows](https://github.com/MiloRuback/E-Helper-for-Minecraft/releases/latest)
 
+[English README](README.en.md)
+
 ## O que ja vem pronto
 
 - Janela desktop sem borda, dark mode, layout responsivo e tamanho minimo 800x500.
@@ -76,8 +78,8 @@ VITE_MICROSOFT_CLIENT_ID=
 Crie uma tag para disparar o workflow:
 
 ```bash
-git tag v0.1.8
-git push origin v0.1.8
+git tag v0.1.9
+git push origin v0.1.9
 ```
 
 O workflow `.github/workflows/release.yml` compila no Windows e publica o `.exe` como asset da release. Se o repositorio continuar privado, o link de download so abre para usuarios autenticados com acesso ao repo.
