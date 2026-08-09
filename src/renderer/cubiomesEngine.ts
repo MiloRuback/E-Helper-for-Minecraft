@@ -29,8 +29,23 @@ export interface CubiomesStructure {
 }
 
 const DIM_OVERWORLD = 0;
+const MC_1_0 = 3;
+const MC_1_1 = 4;
+const MC_1_2 = 5;
+const MC_1_3 = 6;
+const MC_1_4 = 7;
+const MC_1_5 = 8;
+const MC_1_6 = 9;
+const MC_1_7 = 10;
 const MC_1_8 = 11;
+const MC_1_9 = 12;
+const MC_1_10 = 13;
+const MC_1_11 = 14;
 const MC_1_12 = 15;
+const MC_1_13 = 16;
+const MC_1_14 = 17;
+const MC_1_15 = 18;
+const MC_1_16_1 = 19;
 const MC_1_16 = 20;
 const MC_1_17 = 21;
 const MC_1_18 = 22;
@@ -166,17 +181,33 @@ export function loadCubiomesEngine() {
 }
 
 function minecraftVersionToCubiomes(version: string) {
-  if (version.startsWith("1.21.1")) return MC_1_21_1;
-  if (version.startsWith("1.21.2") || version.startsWith("1.21.3")) return MC_1_21_3;
+  if (/^26\./.test(version)) return MC_1_21;
+  if (/^1\.21\.1$/.test(version)) return MC_1_21_1;
+  if (/^1\.21\.[23]$/.test(version)) return MC_1_21_3;
   if (version.startsWith("1.21")) return MC_1_21;
   if (version.startsWith("1.20")) return MC_1_20;
   if (version.startsWith("1.19.2")) return MC_1_19_2;
   if (version.startsWith("1.19")) return MC_1_19;
   if (version.startsWith("1.18")) return MC_1_18;
   if (version.startsWith("1.17")) return MC_1_17;
+  if (version.startsWith("1.16.1")) return MC_1_16_1;
   if (version.startsWith("1.16")) return MC_1_16;
+  if (version.startsWith("1.15")) return MC_1_15;
+  if (version.startsWith("1.14")) return MC_1_14;
+  if (version.startsWith("1.13")) return MC_1_13;
   if (version.startsWith("1.12")) return MC_1_12;
+  if (version.startsWith("1.11")) return MC_1_11;
+  if (version.startsWith("1.10")) return MC_1_10;
+  if (version.startsWith("1.9")) return MC_1_9;
   if (version.startsWith("1.8")) return MC_1_8;
+  if (version.startsWith("1.7")) return MC_1_7;
+  if (version.startsWith("1.6")) return MC_1_6;
+  if (version.startsWith("1.5")) return MC_1_5;
+  if (version.startsWith("1.4")) return MC_1_4;
+  if (version.startsWith("1.3")) return MC_1_3;
+  if (version.startsWith("1.2")) return MC_1_2;
+  if (version.startsWith("1.1")) return MC_1_1;
+  if (version.startsWith("1.0")) return MC_1_0;
   return MC_1_21;
 }
 

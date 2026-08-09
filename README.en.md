@@ -12,7 +12,7 @@ Windows desktop app built with Electron, React, TypeScript and Vite. This delive
 - First-run onboarding with local account, PT-BR/EN-US language and preferences.
 - 64x64 skin editor with brush, eraser, fill bucket, eyedropper, base/overlay layers, symmetry, undo/redo, Steve/Alex templates, PNG import/export and `skinview3d` preview.
 - Blueprint editor with Y-layer grid, block palette, Three.js 3D preview, `.every-blueprint.json` import/export, Java Structure `.nbt` export, Sponge/WorldEdit `.schem` export, Litematica `.litematic` export and `.litematic`, `.schem`, Java Structure `.nbt` import.
-- Offline Seed Map with Cubiomes WASM, seed, version, pan, zoom, coordinates, real biomes and structure markers.
+- Seed Map with Cubiomes WASM, official Mojang release list while online, 102-version offline fallback, seed, pan, zoom, coordinates, real biomes and structure markers.
 - Java world-folder importer with `level.dat` reading, `.mca` chunk counting, heightmap/biome sampling and Overworld/Nether/End region view.
 - Modpack manager by folder, `.jar` listing, config/resourcepack/shaderpack counts and isolated Minecraft Launcher profile creation with `launcher_profiles.json` backup.
 - Local profile with bio, pronouns and Minecraft avatar lookup via the public Mojang API.
@@ -67,8 +67,8 @@ The NSIS installer is generated in `release/`.
 Create a tag to trigger the workflow:
 
 ```bash
-git tag v0.1.10
-git push origin v0.1.10
+git tag v0.1.11
+git push origin v0.1.11
 ```
 
 The `.github/workflows/release.yml` workflow builds on Windows and publishes the `.exe` as a release asset. The repository is public to avoid 404 errors on the download link.

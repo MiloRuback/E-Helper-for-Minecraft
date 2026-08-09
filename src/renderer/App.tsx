@@ -251,18 +251,122 @@ const biomePalette = [
   { id: "jungle", label: "Jungle", color: "#1f8f4a" }
 ];
 
+const MINECRAFT_VERSION_MANIFEST_URL =
+  "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
+
 const minecraftVersions = [
+  "26.2",
+  "26.1.2",
+  "26.1.1",
+  "26.1",
+  "1.21.11",
+  "1.21.10",
+  "1.21.9",
   "1.21.8",
+  "1.21.7",
+  "1.21.6",
+  "1.21.5",
+  "1.21.4",
+  "1.21.3",
+  "1.21.2",
+  "1.21.1",
   "1.21",
   "1.20.6",
+  "1.20.5",
+  "1.20.4",
+  "1.20.3",
+  "1.20.2",
   "1.20.1",
+  "1.20",
   "1.19.4",
+  "1.19.3",
+  "1.19.2",
+  "1.19.1",
+  "1.19",
   "1.18.2",
+  "1.18.1",
+  "1.18",
   "1.17.1",
+  "1.17",
   "1.16.5",
+  "1.16.4",
+  "1.16.3",
+  "1.16.2",
+  "1.16.1",
+  "1.16",
+  "1.15.2",
+  "1.15.1",
+  "1.15",
+  "1.14.4",
+  "1.14.3",
+  "1.14.2",
+  "1.14.1",
+  "1.14",
+  "1.13.2",
+  "1.13.1",
+  "1.13",
   "1.12.2",
-  "1.8.9"
+  "1.12.1",
+  "1.12",
+  "1.11.2",
+  "1.11.1",
+  "1.11",
+  "1.10.2",
+  "1.10.1",
+  "1.10",
+  "1.9.4",
+  "1.9.3",
+  "1.9.2",
+  "1.9.1",
+  "1.9",
+  "1.8.9",
+  "1.8.8",
+  "1.8.7",
+  "1.8.6",
+  "1.8.5",
+  "1.8.4",
+  "1.8.3",
+  "1.8.2",
+  "1.8.1",
+  "1.8",
+  "1.7.10",
+  "1.7.9",
+  "1.7.8",
+  "1.7.7",
+  "1.7.6",
+  "1.7.5",
+  "1.7.4",
+  "1.7.3",
+  "1.7.2",
+  "1.6.4",
+  "1.6.2",
+  "1.6.1",
+  "1.5.2",
+  "1.5.1",
+  "1.4.7",
+  "1.4.6",
+  "1.4.5",
+  "1.4.4",
+  "1.4.2",
+  "1.3.2",
+  "1.3.1",
+  "1.2.5",
+  "1.2.4",
+  "1.2.3",
+  "1.2.2",
+  "1.2.1",
+  "1.1",
+  "1.0"
 ];
+
+function releaseVersionsFromManifest(value: unknown) {
+  const versions = (value as { versions?: Array<{ id?: unknown; type?: unknown }> })
+    ?.versions;
+  if (!Array.isArray(versions)) return [];
+  return versions
+    .filter((item) => item.type === "release" && typeof item.id === "string")
+    .map((item) => item.id as string);
+}
 
 const navOrder: PageId[] = [
   "home",
@@ -1763,7 +1867,8 @@ function Stat({ label, value }: { label: string; value: string }) {
 function SeedMapPage({ language }: { language: Language }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [seed, setSeed] = useState("MiloRuback");
-  const [version, setVersion] = useState("1.21.8");
+  const [versions, setVersions] = useState(minecraftVersions);
+  const [version, setVersion] = useState(minecraftVersions[0]);
   const [zoom, setZoom] = useState(1.5);
   const [offset, setOffset] = useState({ x: 0, z: 0 });
   const [target, setTarget] = useState({ x: 0, z: 0 });
@@ -1788,6 +1893,26 @@ function SeedMapPage({ language }: { language: Language }) {
         if (disposed) return;
         setSeedEngineStatus("fallback");
       });
+    return () => {
+      disposed = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let disposed = false;
+    fetch(MINECRAFT_VERSION_MANIFEST_URL)
+      .then((response) => {
+        if (!response.ok) throw new Error(`Minecraft manifest ${response.status}`);
+        return response.json() as Promise<unknown>;
+      })
+      .then((manifest) => {
+        if (disposed) return;
+        const releases = releaseVersionsFromManifest(manifest);
+        if (!releases.length) return;
+        setVersions(releases);
+        setVersion((current) => (releases.includes(current) ? current : releases[0]));
+      })
+      .catch(() => undefined);
     return () => {
       disposed = true;
     };
@@ -1901,7 +2026,7 @@ function SeedMapPage({ language }: { language: Language }) {
         <label className="inline-input">
           {copy(language, "Versao", "Version")}
           <select value={version} onChange={(event) => setVersion(event.target.value)}>
-            {minecraftVersions.map((item) => (
+            {versions.map((item) => (
               <option key={item}>{item}</option>
             ))}
           </select>

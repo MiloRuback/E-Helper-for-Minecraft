@@ -9,6 +9,7 @@ Use esta lista antes de apresentar ou publicar uma release.
 - [x] Editor de skins importa/exporta PNG e oferece undo/redo.
 - [x] Preview 3D de skin e blueprint usa WebGL.
 - [x] Seed Map usa Cubiomes WASM, permite pan, zoom e busca por coordenadas.
+- [x] Seed Map carrega a lista oficial de releases da Mojang quando online e possui fallback offline com 102 versoes.
 - [x] Importador de mundo nao altera arquivos do save.
 - [x] Gerenciador de modpack faz backup antes de alterar `launcher_profiles.json`.
 - [x] Configuracoes exportam/restauram backup local.
@@ -29,6 +30,7 @@ Use esta lista antes de apresentar ou publicar uma release.
 - [x] QA visual Playwright em ingles sem overflow, sem erros de console e sem textos PT-BR criticos em 16 combinacoes de tela/pagina.
 - [x] QA dirigida do World Importer com dados simulados de bioma/heightmap no mobile.
 - [x] Smoke test do executavel empacotado.
+- [x] Instalador validado localmente com instalacao silenciosa em pasta temporaria, abertura do app e desinstalacao.
 - [ ] Testar instalador em uma maquina Windows limpa.
 - [ ] Testar Supabase Auth com uma conta real de usuario.
 - [ ] Testar Drive/Microsoft com Client IDs reais.
