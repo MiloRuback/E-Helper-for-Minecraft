@@ -8,7 +8,11 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import zlib from "node:zlib";
-import { exportBlueprintToNbt, exportBlueprintToSchem } from "./blueprintNbt.js";
+import {
+  exportBlueprintToLitematic,
+  exportBlueprintToNbt,
+  exportBlueprintToSchem
+} from "./blueprintNbt.js";
 import type {
   CloudBackupPayload,
   BlueprintConvertRequest,
@@ -281,6 +285,12 @@ ipcMain.handle(
   "blueprint:export-schem",
   async (_event, request: BlueprintExportRequest): Promise<BlueprintExportResult> =>
     exportBlueprintToSchem(request)
+);
+
+ipcMain.handle(
+  "blueprint:export-litematic",
+  async (_event, request: BlueprintExportRequest): Promise<BlueprintExportResult> =>
+    exportBlueprintToLitematic(request)
 );
 
 ipcMain.handle(

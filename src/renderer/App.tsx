@@ -1453,6 +1453,23 @@ function BlueprintEditor({ language }: { language: Language }) {
     downloadBinaryFile(result.fileName, result.bytes, "application/octet-stream");
   }
 
+  async function exportBlueprintLitematic() {
+    if (!window.everyHelper) {
+      alert(copy(language, "Exportacao LITEMATIC funciona dentro do app Electron.", "LITEMATIC export works inside the Electron app."));
+      return;
+    }
+    const result = await window.everyHelper.exportBlueprintLitematic({
+      name: blueprint.name,
+      size: blueprint.size,
+      blocks: blueprint.blocks
+    });
+    if (!result.ok || !result.fileName || !result.bytes) {
+      alert(result.message);
+      return;
+    }
+    downloadBinaryFile(result.fileName, result.bytes, "application/octet-stream");
+  }
+
   function importBlueprint(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -1574,6 +1591,9 @@ function BlueprintEditor({ language }: { language: Language }) {
         </button>
         <button onClick={exportBlueprintSchem}>
           <Download size={16} /> {copy(language, "Exportar SCHEM", "Export SCHEM")}
+        </button>
+        <button onClick={exportBlueprintLitematic}>
+          <Download size={16} /> {copy(language, "Exportar LITEMATIC", "Export LITEMATIC")}
         </button>
       </div>
 

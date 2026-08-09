@@ -9,6 +9,8 @@ type PrismarineNbt = {
   byteArray: (value: Buffer | number[]) => unknown;
   int: (value: number | number[]) => unknown;
   intArray: (value: number[]) => unknown;
+  long: (value: bigint | number | number[]) => unknown;
+  longArray: (value: bigint[] | number[]) => unknown;
   short: (value: number) => unknown;
   string: (value: string) => unknown;
   list: (value: unknown) => unknown;
@@ -132,6 +134,102 @@ export async function exportBlueprintToSchem(
   }
 }
 
+export async function exportBlueprintToLitematic(
+  request: BlueprintExportRequest
+): Promise<BlueprintExportResult> {
+  try {
+    const nbt = await loadPrismarineNbt();
+    const validBlocks = validBlueprintBlocks(request);
+    const paletteNames = [
+      "minecraft:air",
+      ...Array.from(
+        new Set(validBlocks.map((block) => minecraftBlockNameFromType(block.type)))
+      )
+    ];
+    const paletteIndex = new Map(paletteNames.map((name, index) => [name, index]));
+    const volume = request.size.x * request.size.y * request.size.z;
+    const blockStates = new Array<number>(volume).fill(0);
+
+    validBlocks.forEach((block) => {
+      const index = (block.y * request.size.z + block.z) * request.size.x + block.x;
+      blockStates[index] =
+        paletteIndex.get(minecraftBlockNameFromType(block.type)) ?? 0;
+    });
+
+    const now = BigInt(Date.now());
+    const regionName = safeFileStem(request.name).replace(/[-_.]+/g, " ") || "Every Helper";
+    const tag = nbt.comp(
+      {
+        Version: nbt.int(6),
+        SubVersion: nbt.int(1),
+        MinecraftDataVersion: nbt.int(STRUCTURE_DATA_VERSION),
+        Metadata: nbt.comp({
+          Name: nbt.string(request.name || "Every Helper Blueprint"),
+          Author: nbt.string("Every Helper for Minecraft"),
+          Description: nbt.string("Exported from Every Helper for Minecraft."),
+          RegionCount: nbt.int(1),
+          TotalBlocks: nbt.int(validBlocks.length),
+          TotalVolume: nbt.int(volume),
+          TimeCreated: nbt.long(now),
+          TimeModified: nbt.long(now),
+          EnclosingSize: nbt.comp({
+            x: nbt.int(request.size.x),
+            y: nbt.int(request.size.y),
+            z: nbt.int(request.size.z)
+          })
+        }),
+        Regions: nbt.comp({
+          [regionName]: nbt.comp({
+            Position: nbt.comp({
+              x: nbt.int(0),
+              y: nbt.int(0),
+              z: nbt.int(0)
+            }),
+            Size: nbt.comp({
+              x: nbt.int(request.size.x),
+              y: nbt.int(request.size.y),
+              z: nbt.int(request.size.z)
+            }),
+            BlockStatePalette: nbt.list(
+              nbt.comp(
+                paletteNames.map((name) => ({
+                  Name: nbt.string(name)
+                }))
+              )
+            ),
+            BlockStates: nbt.longArray(
+              packLitematicBlockStates(blockStates, paletteNames.length)
+            ),
+            TileEntities: nbt.list(nbt.comp([])),
+            Entities: nbt.list(nbt.comp([])),
+            PendingBlockTicks: nbt.list(nbt.comp([])),
+            PendingFluidTicks: nbt.list(nbt.comp([]))
+          })
+        })
+      },
+      ""
+    );
+
+    const gzipped = zlib.gzipSync(nbt.writeUncompressed(tag));
+    return {
+      ok: true,
+      message: "Blueprint exportado como Litematica.",
+      fileName: `${safeFileStem(request.name)}.litematic`,
+      bytes: Array.from(gzipped),
+      blockCount: validBlocks.length,
+      paletteCount: paletteNames.length
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel exportar o blueprint como Litematic."
+    };
+  }
+}
+
 async function loadPrismarineNbt() {
   const nbtModule = (await import("prismarine-nbt")) as unknown as {
     default?: PrismarineNbt;
@@ -166,6 +264,32 @@ function encodeVarints(values: number[]) {
     } while (value !== 0);
   });
   return bytes;
+}
+
+function packLitematicBlockStates(values: number[], paletteCount: number) {
+  const bitsPerBlock = Math.max(2, bitLength(paletteCount - 1));
+  const longs = new Array<bigint>(Math.ceil((values.length * bitsPerBlock) / 64)).fill(
+    0n
+  );
+  const mask = (1n << BigInt(bitsPerBlock)) - 1n;
+
+  values.forEach((initialValue, index) => {
+    const value = BigInt(initialValue) & mask;
+    const bitOffset = index * bitsPerBlock;
+    const longIndex = Math.floor(bitOffset / 64);
+    const startBit = BigInt(bitOffset % 64);
+    longs[longIndex] |= value << startBit;
+    if (startBit + BigInt(bitsPerBlock) > 64n) {
+      longs[longIndex + 1] |= value >> (64n - startBit);
+    }
+  });
+
+  return longs.map((value) => BigInt.asIntN(64, value));
+}
+
+function bitLength(value: number) {
+  if (value <= 0) return 0;
+  return 32 - Math.clz32(value);
 }
 
 function safeFileStem(value: string) {
