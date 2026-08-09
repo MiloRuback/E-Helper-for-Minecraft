@@ -25,6 +25,7 @@ Use esta lista antes de apresentar ou publicar uma release.
 - [x] Exportacao de blueprint em Sponge/WorldEdit `.schem` validada por round-trip NBT.
 - [x] Cubiomes WASM validado no preview com status ativo, hover e canvas nao vazio.
 - [x] QA visual Playwright desktop/mobile sem overflow em 16 combinacoes de tela/pagina.
+- [x] QA visual Playwright em ingles sem overflow, sem erros de console e sem textos PT-BR criticos em 16 combinacoes de tela/pagina.
 - [x] QA dirigida do World Importer com dados simulados de bioma/heightmap no mobile.
 - [x] Smoke test do executavel empacotado.
 - [ ] Testar instalador em uma maquina Windows limpa.

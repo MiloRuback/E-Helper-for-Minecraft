@@ -279,6 +279,10 @@ function t(language: Language, key: keyof (typeof translations)["pt-br"]) {
   return translations[language][key] ?? translations["pt-br"][key];
 }
 
+function copy(language: Language, pt: string, en: string) {
+  return language === "pt-br" ? pt : en;
+}
+
 function usePersistentState<T>(key: string, initialValue: T) {
   const [value, setValue] = useState<T>(() => {
     try {
@@ -553,7 +557,7 @@ function App() {
     <div className="app-shell">
       <Titlebar language={language} />
       <div className="app-body">
-        <aside className="sidebar" aria-label="Navegacao principal">
+        <aside className="sidebar" aria-label={copy(language, "Navegacao principal", "Main navigation")}>
           <div className="brand-lockup">
             <PixelLogo />
             <div>
@@ -644,18 +648,18 @@ function Titlebar({ language }: { language: Language }) {
       </div>
       <div className="window-actions">
         <button
-          title="Minimizar"
+          title={copy(language, "Minimizar", "Minimize")}
           onClick={() => window.everyHelper?.window.minimize()}
         >
           <Minimize2 size={15} />
         </button>
         <button
-          title="Maximizar"
+          title={copy(language, "Maximizar", "Maximize")}
           onClick={() => window.everyHelper?.window.maximize()}
         >
           <Maximize2 size={15} />
         </button>
-        <button title="Fechar" onClick={() => window.everyHelper?.window.close()}>
+        <button title={copy(language, "Fechar", "Close")} onClick={() => window.everyHelper?.window.close()}>
           <X size={16} />
         </button>
       </div>
@@ -750,15 +754,19 @@ function HomePage({
         <div className="status-panel">
           <strong>{account?.displayName ?? "Player"}</strong>
           <span>{settings.supabaseEnabled ? "Supabase config OK" : "Offline first"}</span>
-          <span>{settings.driveSync ? "Drive marcado" : "Drive opcional"}</span>
+          <span>
+            {settings.driveSync
+              ? copy(language, "Drive marcado", "Drive enabled")
+              : copy(language, "Drive opcional", "Drive optional")}
+          </span>
         </div>
       </div>
 
       <div className="metric-strip">
-        <Metric label="Módulos" value="7" />
-        <Metric label="Idiomas" value="PT/EN" />
-        <Metric label="Janela mínima" value="800x500" />
-        <Metric label="Instalador" value="NSIS" />
+        <Metric label={copy(language, "Modulos", "Modules")} value="7" />
+        <Metric label={copy(language, "Idiomas", "Languages")} value="PT/EN" />
+        <Metric label={copy(language, "Janela minima", "Minimum window")} value="800x500" />
+        <Metric label={copy(language, "Instalador", "Installer")} value="NSIS" />
       </div>
 
       <div className="module-grid">
@@ -842,7 +850,7 @@ function Onboarding({
           </p>
 
           <label>
-            <span>Nome</span>
+            <span>{copy(language, "Nome", "Name")}</span>
             <input value={name} onChange={(event) => setName(event.target.value)} />
           </label>
           <label>
@@ -1128,16 +1136,32 @@ function SkinEditor({ language }: { language: Language }) {
       />
 
       <div className="toolbar">
-        <IconButton active={tool === "brush"} label="Pincel" onClick={() => setTool("brush")}>
+        <IconButton
+          active={tool === "brush"}
+          label={copy(language, "Pincel", "Brush")}
+          onClick={() => setTool("brush")}
+        >
           <Brush size={17} />
         </IconButton>
-        <IconButton active={tool === "eraser"} label="Borracha" onClick={() => setTool("eraser")}>
+        <IconButton
+          active={tool === "eraser"}
+          label={copy(language, "Borracha", "Eraser")}
+          onClick={() => setTool("eraser")}
+        >
           <Eraser size={17} />
         </IconButton>
-        <IconButton active={tool === "fill"} label="Balde" onClick={() => setTool("fill")}>
+        <IconButton
+          active={tool === "fill"}
+          label={copy(language, "Balde", "Fill bucket")}
+          onClick={() => setTool("fill")}
+        >
           <PaintBucket size={17} />
         </IconButton>
-        <IconButton active={tool === "picker"} label="Conta-gotas" onClick={() => setTool("picker")}>
+        <IconButton
+          active={tool === "picker"}
+          label={copy(language, "Conta-gotas", "Eyedropper")}
+          onClick={() => setTool("picker")}
+        >
           <Pipette size={17} />
         </IconButton>
         <input
@@ -1145,7 +1169,7 @@ function SkinEditor({ language }: { language: Language }) {
           type="color"
           value={color}
           onChange={(event) => setColor(event.target.value)}
-          aria-label="Cor"
+          aria-label={copy(language, "Cor", "Color")}
         />
         <div className="palette">
           {["#4ecca3", "#2f83c6", "#8b5a2b", "#7f8c8d", "#f2c94c", "#e74c3c", "#ffffff", "#111111"].map(
@@ -1169,12 +1193,12 @@ function SkinEditor({ language }: { language: Language }) {
         >
           <Redo2 size={17} />
         </IconButton>
-        <Toggle label="Simetria" checked={symmetry} onChange={setSymmetry} />
+        <Toggle label={copy(language, "Simetria", "Symmetry")} checked={symmetry} onChange={setSymmetry} />
       </div>
 
       <div className="skin-layout">
         <div className="tool-panel">
-          <h3>Camadas</h3>
+          <h3>{copy(language, "Camadas", "Layers")}</h3>
           <div className="segmented-row">
             <button
               className={activeLayer === "base" ? "selected" : ""}
@@ -1199,7 +1223,7 @@ function SkinEditor({ language }: { language: Language }) {
             {showOverlay ? <Eye size={16} /> : <EyeOff size={16} />} Overlay
           </button>
 
-          <h3>Modelo</h3>
+          <h3>{copy(language, "Modelo", "Model")}</h3>
           <div className="segmented-row">
             <button
               className={skin.model === "standard" ? "selected" : ""}
@@ -1234,10 +1258,10 @@ function SkinEditor({ language }: { language: Language }) {
             onChange={importSkin}
           />
           <button className="text-button" onClick={() => fileRef.current?.click()}>
-            <Upload size={16} /> Importar PNG
+            <Upload size={16} /> {copy(language, "Importar PNG", "Import PNG")}
           </button>
           <button className="text-button" onClick={exportSkin}>
-            <Download size={16} /> Exportar PNG
+            <Download size={16} /> {copy(language, "Exportar PNG", "Export PNG")}
           </button>
         </div>
 
@@ -1254,7 +1278,7 @@ function SkinEditor({ language }: { language: Language }) {
           />
         </div>
 
-        <SkinPreview skinUrl={mergedUrl} model={skin.model} />
+        <SkinPreview skinUrl={mergedUrl} model={skin.model} language={language} />
       </div>
     </section>
   );
@@ -1262,10 +1286,12 @@ function SkinEditor({ language }: { language: Language }) {
 
 function SkinPreview({
   skinUrl,
-  model
+  model,
+  language
 }: {
   skinUrl: string;
   model: SkinModel;
+  language: Language;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const viewerRef = useRef<skinview3d.SkinViewer | null>(null);
@@ -1302,7 +1328,7 @@ function SkinPreview({
         Preview 3D
       </div>
       <canvas ref={canvasRef} />
-      <p>Arraste para girar. Scroll aproxima o modelo.</p>
+      <p>{copy(language, "Arraste para girar. Scroll aproxima o modelo.", "Drag to rotate. Scroll to zoom the model.")}</p>
     </div>
   );
 }
@@ -1395,7 +1421,7 @@ function BlueprintEditor({ language }: { language: Language }) {
 
   async function exportBlueprintNbt() {
     if (!window.everyHelper) {
-      alert("Exportacao NBT funciona dentro do app Electron.");
+      alert(copy(language, "Exportacao NBT funciona dentro do app Electron.", "NBT export works inside the Electron app."));
       return;
     }
     const result = await window.everyHelper.exportBlueprintNbt({
@@ -1412,7 +1438,7 @@ function BlueprintEditor({ language }: { language: Language }) {
 
   async function exportBlueprintSchem() {
     if (!window.everyHelper) {
-      alert("Exportacao SCHEM funciona dentro do app Electron.");
+      alert(copy(language, "Exportacao SCHEM funciona dentro do app Electron.", "SCHEM export works inside the Electron app."));
       return;
     }
     const result = await window.everyHelper.exportBlueprintSchem({
@@ -1436,11 +1462,13 @@ function BlueprintEditor({ language }: { language: Language }) {
         if (file.name.endsWith(".json") || file.name.endsWith(".blueprint")) {
           const parsed = JSON.parse(String(reader.result));
           const next = parsed.blueprint ?? parsed;
-          if (!next?.blocks || !next?.size) throw new Error("Formato invalido.");
+          if (!next?.blocks || !next?.size) {
+            throw new Error(copy(language, "Formato invalido.", "Invalid format."));
+          }
           setBlueprint(next);
         } else {
           if (!window.everyHelper) {
-            throw new Error("Conversao NBT funciona dentro do app Electron.");
+            throw new Error(copy(language, "Conversao NBT funciona dentro do app Electron.", "NBT conversion works inside the Electron app."));
           }
           const result = await window.everyHelper.convertBlueprint({
             fileName: file.name,
@@ -1468,7 +1496,11 @@ function BlueprintEditor({ language }: { language: Language }) {
         setSlice(0);
       } catch {
         alert(
-          "Nao foi possivel importar. Suportado: .every-blueprint.json, .litematic, .schem e .nbt Java Structure."
+          copy(
+            language,
+            "Nao foi possivel importar. Suportado: .every-blueprint.json, .litematic, .schem e .nbt Java Structure.",
+            "Could not import. Supported: .every-blueprint.json, .litematic, .schem and Java Structure .nbt."
+          )
         );
       }
     };
@@ -1494,7 +1526,7 @@ function BlueprintEditor({ language }: { language: Language }) {
 
       <div className="toolbar">
         <label className="inline-input">
-          Nome
+          {copy(language, "Nome", "Name")}
           <input
             value={blueprint.name}
             onChange={(event) =>
@@ -1503,7 +1535,7 @@ function BlueprintEditor({ language }: { language: Language }) {
           />
         </label>
         <label className="inline-input">
-          Camada Y
+          {copy(language, "Camada Y", "Y layer")}
           <input
             type="range"
             min="0"
@@ -1532,16 +1564,16 @@ function BlueprintEditor({ language }: { language: Language }) {
           onChange={importBlueprint}
         />
         <button onClick={() => fileRef.current?.click()}>
-          <Upload size={16} /> Importar
+          <Upload size={16} /> {copy(language, "Importar", "Import")}
         </button>
         <button onClick={exportBlueprint}>
-          <Download size={16} /> Exportar JSON
+          <Download size={16} /> {copy(language, "Exportar JSON", "Export JSON")}
         </button>
         <button onClick={exportBlueprintNbt}>
-          <Download size={16} /> Exportar NBT
+          <Download size={16} /> {copy(language, "Exportar NBT", "Export NBT")}
         </button>
         <button onClick={exportBlueprintSchem}>
-          <Download size={16} /> Exportar SCHEM
+          <Download size={16} /> {copy(language, "Exportar SCHEM", "Export SCHEM")}
         </button>
       </div>
 
@@ -1570,18 +1602,18 @@ function BlueprintEditor({ language }: { language: Language }) {
         <BlueprintPreview blueprint={blueprint} slice={slice} />
 
         <div className="tool-panel">
-          <h3>Resumo</h3>
-          <Stat label="Blocos" value={String(blueprint.blocks.length)} />
+          <h3>{copy(language, "Resumo", "Summary")}</h3>
+          <Stat label={copy(language, "Blocos", "Blocks")} value={String(blueprint.blocks.length)} />
           <Stat
-            label="Tamanho"
+            label={copy(language, "Tamanho", "Size")}
             value={`${blueprint.size.x} x ${blueprint.size.y} x ${blueprint.size.z}`}
           />
-          <Stat label="Tipo ativo" value={blockLabels[selectedBlock]} />
+          <Stat label={copy(language, "Tipo ativo", "Active type")} value={blockLabels[selectedBlock]} />
           <button
             className="text-button danger"
             onClick={() => setBlueprint((current) => ({ ...current, blocks: [] }))}
           >
-            <Trash2 size={16} /> Limpar
+            <Trash2 size={16} /> {copy(language, "Limpar", "Clear")}
           </button>
         </div>
       </div>
@@ -1716,7 +1748,7 @@ function SeedMapPage({ language }: { language: Language }) {
   const [offset, setOffset] = useState({ x: 0, z: 0 });
   const [target, setTarget] = useState({ x: 0, z: 0 });
   const [cubiomes, setCubiomes] = useState<CubiomesEngine | null>(null);
-  const [seedEngineStatus, setSeedEngineStatus] = useState("Carregando Cubiomes WASM...");
+  const [seedEngineStatus, setSeedEngineStatus] = useState<"loading" | "active" | "fallback">("loading");
   const [hover, setHover] = useState<{ x: number; z: number; biome: string } | null>(
     null
   );
@@ -1730,11 +1762,11 @@ function SeedMapPage({ language }: { language: Language }) {
       .then((engine) => {
         if (disposed) return;
         setCubiomes(engine);
-        setSeedEngineStatus("Cubiomes WASM ativo");
+        setSeedEngineStatus("active");
       })
       .catch(() => {
         if (disposed) return;
-        setSeedEngineStatus("Fallback deterministico ativo");
+        setSeedEngineStatus("fallback");
       });
     return () => {
       disposed = true;
@@ -1847,7 +1879,7 @@ function SeedMapPage({ language }: { language: Language }) {
           <input value={seed} onChange={(event) => setSeed(event.target.value)} />
         </label>
         <label className="inline-input">
-          Versão
+          {copy(language, "Versao", "Version")}
           <select value={version} onChange={(event) => setVersion(event.target.value)}>
             {minecraftVersions.map((item) => (
               <option key={item}>{item}</option>
@@ -1875,7 +1907,7 @@ function SeedMapPage({ language }: { language: Language }) {
           />
         </label>
         <button onClick={locate}>
-          <LocateFixed size={16} /> Ir
+          <LocateFixed size={16} /> {copy(language, "Ir", "Go")}
         </button>
       </div>
       <div className="map-shell">
@@ -1910,8 +1942,16 @@ function SeedMapPage({ language }: { language: Language }) {
           }}
         />
         <div className="map-hud">
-          {hover ? `${hover.biome} | X ${hover.x}, Z ${hover.z}` : "Passe o mouse no mapa"}
-          <span>{seedEngineStatus}</span>
+          {hover
+            ? `${hover.biome} | X ${hover.x}, Z ${hover.z}`
+            : copy(language, "Passe o mouse no mapa", "Hover the map")}
+          <span>
+            {seedEngineStatus === "active"
+              ? copy(language, "Cubiomes WASM ativo", "Cubiomes WASM active")
+              : seedEngineStatus === "loading"
+                ? copy(language, "Carregando Cubiomes WASM...", "Loading Cubiomes WASM...")
+                : copy(language, "Fallback deterministico ativo", "Deterministic fallback active")}
+          </span>
         </div>
       </div>
       <div className="legend">
@@ -1964,7 +2004,7 @@ function WorldImporter({ language }: { language: Language }) {
 
   async function selectWorld() {
     if (!window.everyHelper) {
-      alert("A importacao de pastas funciona dentro do app Electron.");
+      alert(copy(language, "A importacao de pastas funciona dentro do app Electron.", "Folder import works inside the Electron app."));
       return;
     }
     const result = await window.everyHelper.selectWorldFolder();
@@ -1997,7 +2037,7 @@ function WorldImporter({ language }: { language: Language }) {
       />
       <div className="toolbar">
         <button className="primary" onClick={selectWorld}>
-          <FolderOpen size={16} /> Selecionar mundo
+          <FolderOpen size={16} /> {copy(language, "Selecionar mundo", "Select world")}
         </button>
         <label className="inline-input small">
           X
@@ -2024,21 +2064,25 @@ function WorldImporter({ language }: { language: Language }) {
       {!world?.ok ? (
         <EmptyState
           icon={<Globe2 size={32} />}
-          title="Nenhum mundo importado"
-          text="Escolha a pasta de um save do Minecraft Java para analisar regioes, chunks e metadata."
+          title={copy(language, "Nenhum mundo importado", "No world imported")}
+          text={copy(
+            language,
+            "Escolha a pasta de um save do Minecraft Java para analisar regioes, chunks e metadata.",
+            "Choose a Minecraft Java save folder to inspect regions, chunks and metadata."
+          )}
         />
       ) : (
         <div className="world-layout">
           <div className="tool-panel">
             <h3>{world.name}</h3>
-            <Stat label="Seed" value={world.seed ?? "Nao encontrada"} />
-            <Stat label="Modo" value={world.gameMode ?? "Nao encontrado"} />
+            <Stat label="Seed" value={world.seed ?? copy(language, "Nao encontrada", "Not found")} />
+            <Stat label={copy(language, "Modo", "Mode")} value={world.gameMode ?? copy(language, "Nao encontrado", "Not found")} />
             <Stat
               label="Spawn"
               value={
                 world.spawn?.x !== undefined
                   ? `${world.spawn.x}, ${world.spawn.y}, ${world.spawn.z}`
-                  : "Nao encontrado"
+                  : copy(language, "Nao encontrado", "Not found")
               }
             />
             <div className="segmented-column">
@@ -2056,40 +2100,42 @@ function WorldImporter({ language }: { language: Language }) {
           </div>
           <RegionMap dimension={dimension} selectedRegion={selectedRegion} />
           <div className="tool-panel">
-            <h3>Região alvo</h3>
+            <h3>{copy(language, "Regiao alvo", "Target region")}</h3>
             {selectedRegion ? (
               <>
-                <Stat label="Arquivo" value={selectedRegion.fileName} />
+                <Stat label={copy(language, "Arquivo", "File")} value={selectedRegion.fileName} />
                 <Stat label="Chunks" value={String(selectedRegion.chunks)} />
                 <Stat
-                  label="Amostras"
+                  label={copy(language, "Amostras", "Samples")}
                   value={String(selectedRegion.sampledChunks ?? 0)}
                 />
                 <Stat
-                  label="Bioma"
+                  label={copy(language, "Bioma", "Biome")}
                   value={formatBiomeName(selectedRegion.topBiomes?.[0]?.id)}
                 />
                 <Stat
-                  label="Altura media"
+                  label={copy(language, "Altura media", "Average height")}
                   value={
                     selectedRegion.averageHeight !== undefined
                       ? String(selectedRegion.averageHeight)
-                      : "Sem heightmap"
+                      : copy(language, "Sem heightmap", "No heightmap")
                   }
                 />
                 <Stat
-                  label="Relevo"
+                  label={copy(language, "Relevo", "Relief")}
                   value={
                     selectedRegion.minHeight !== undefined &&
                     selectedRegion.maxHeight !== undefined
                       ? `${selectedRegion.minHeight} - ${selectedRegion.maxHeight}`
-                      : "Sem dados"
+                      : copy(language, "Sem dados", "No data")
                   }
                 />
-                <Stat label="Alterado" value={readableDate(selectedRegion.lastModified)} />
+                <Stat label={copy(language, "Alterado", "Modified")} value={readableDate(selectedRegion.lastModified)} />
               </>
             ) : (
-              <p className="muted">Nenhuma região carregada para estas coordenadas.</p>
+              <p className="muted">
+                {copy(language, "Nenhuma regiao carregada para estas coordenadas.", "No region loaded for these coordinates.")}
+              </p>
             )}
           </div>
         </div>
@@ -2215,7 +2261,7 @@ function ModpacksPage({ language }: { language: Language }) {
 
   async function importFolder() {
     if (!window.everyHelper) {
-      alert("A selecao de pasta funciona dentro do app Electron.");
+      alert(copy(language, "A selecao de pasta funciona dentro do app Electron.", "Folder selection works inside the Electron app."));
       return;
     }
     const result = await window.everyHelper.selectModpackFolder();
@@ -2274,13 +2320,13 @@ function ModpacksPage({ language }: { language: Language }) {
       />
       <div className="modpack-layout">
         <div className="tool-panel">
-          <h3>Novo modpack</h3>
+          <h3>{copy(language, "Novo modpack", "New modpack")}</h3>
           <label>
-            <span>Nome</span>
+            <span>{copy(language, "Nome", "Name")}</span>
             <input value={name} onChange={(event) => setName(event.target.value)} />
           </label>
           <label>
-            <span>Versão</span>
+            <span>{copy(language, "Versao", "Version")}</span>
             <select value={version} onChange={(event) => setVersion(event.target.value)}>
               {minecraftVersions.map((item) => (
                 <option key={item}>{item}</option>
@@ -2300,23 +2346,23 @@ function ModpacksPage({ language }: { language: Language }) {
             </select>
           </label>
           <label>
-            <span>Descrição</span>
+            <span>{copy(language, "Descricao", "Description")}</span>
             <textarea
               value={description}
               onChange={(event) => setDescription(event.target.value)}
             />
           </label>
           <button className="text-button" onClick={importFolder}>
-            <FolderOpen size={16} /> Selecionar pasta
+            <FolderOpen size={16} /> {copy(language, "Selecionar pasta", "Select folder")}
           </button>
           <button className="primary" disabled={!pendingFolder?.ok} onClick={addPack}>
-            <Plus size={16} /> Adicionar
+            <Plus size={16} /> {copy(language, "Adicionar", "Add")}
           </button>
           {pendingFolder?.ok && (
             <div className="folder-summary">
               <Stat label="Mods" value={String(pendingFolder.mods?.length ?? 0)} />
-              <Stat label="Arquivos" value={String(pendingFolder.acceptedFiles ?? 0)} />
-              <Stat label="Tamanho" value={`${pendingFolder.totalSizeMb ?? 0} MB`} />
+              <Stat label={copy(language, "Arquivos", "Files")} value={String(pendingFolder.acceptedFiles ?? 0)} />
+              <Stat label={copy(language, "Tamanho", "Size")} value={`${pendingFolder.totalSizeMb ?? 0} MB`} />
             </div>
           )}
         </div>
@@ -2325,8 +2371,12 @@ function ModpacksPage({ language }: { language: Language }) {
           {packs.length === 0 ? (
             <EmptyState
               icon={<FileArchive size={32} />}
-              title="Nenhum modpack"
-              text="Importe uma pasta que tenha mods, configs, resourcepacks ou saves."
+              title={copy(language, "Nenhum modpack", "No modpack")}
+              text={copy(
+                language,
+                "Importe uma pasta que tenha mods, configs, resourcepacks ou saves.",
+                "Import a folder with mods, configs, resourcepacks or saves."
+              )}
             />
           ) : (
             packs.map((pack) => (
@@ -2345,7 +2395,7 @@ function ModpacksPage({ language }: { language: Language }) {
                   <Stat label="MB" value={String(pack.folder.totalSizeMb ?? 0)} />
                 </div>
                 <details>
-                  <summary>Mods detectados</summary>
+                  <summary>{copy(language, "Mods detectados", "Detected mods")}</summary>
                   <ul>
                     {(pack.folder.mods ?? []).slice(0, 20).map((mod) => (
                       <li key={mod.relativePath}>
@@ -2367,7 +2417,7 @@ function ModpacksPage({ language }: { language: Language }) {
                       )
                     }
                   >
-                    <Download size={16} /> Exportar
+                    <Download size={16} /> {copy(language, "Exportar", "Export")}
                   </button>
                 </div>
               </article>
@@ -2413,12 +2463,12 @@ function ProfilePage({
   async function connectMinecraft() {
     const username = profile.minecraftUsername.trim();
     if (!username) return;
-    setLookupStatus("Buscando perfil publico...");
+    setLookupStatus(copy(language, "Buscando perfil publico...", "Searching public profile..."));
     try {
       const response = await fetch(
         `https://api.mojang.com/users/profiles/minecraft/${encodeURIComponent(username)}`
       );
-      if (!response.ok) throw new Error("Username nao encontrado.");
+      if (!response.ok) throw new Error(copy(language, "Username nao encontrado.", "Username not found."));
       const data = (await response.json()) as { id: string; name: string };
       setProfile((current) => ({
         ...current,
@@ -2426,18 +2476,18 @@ function ProfilePage({
         minecraftUuid: data.id,
         avatarUrl: `https://crafatar.com/avatars/${data.id}?size=128&overlay`
       }));
-      setLookupStatus("Perfil conectado pela API publica.");
+      setLookupStatus(copy(language, "Perfil conectado pela API publica.", "Profile connected through the public API."));
     } catch (error) {
-      setLookupStatus(error instanceof Error ? error.message : "Falha ao buscar.");
+      setLookupStatus(error instanceof Error ? error.message : copy(language, "Falha ao buscar.", "Lookup failed."));
     }
   }
 
   async function signUpSupabase() {
     if (!supabase) {
-      setAuthStatus("Configure URL e anon key do Supabase em Configuracoes.");
+      setAuthStatus(copy(language, "Configure URL e anon key do Supabase em Configuracoes.", "Configure the Supabase URL and anon key in Settings."));
       return;
     }
-    setAuthStatus("Criando conta no Supabase...");
+    setAuthStatus(copy(language, "Criando conta no Supabase...", "Creating Supabase account..."));
     const { data, error } = await supabase.auth.signUp({
       email: authEmail.trim(),
       password: authPassword,
@@ -2454,15 +2504,15 @@ function ProfilePage({
       setCloudUser({ id: user.id, email: user.email ?? authEmail.trim() });
       await saveProfileToSupabase(user);
     }
-    setAuthStatus("Conta criada. Se o email exigir confirmacao, confirme antes de logar.");
+    setAuthStatus(copy(language, "Conta criada. Se o email exigir confirmacao, confirme antes de logar.", "Account created. If email confirmation is required, confirm it before logging in."));
   }
 
   async function signInSupabase() {
     if (!supabase) {
-      setAuthStatus("Configure URL e anon key do Supabase em Configuracoes.");
+      setAuthStatus(copy(language, "Configure URL e anon key do Supabase em Configuracoes.", "Configure the Supabase URL and anon key in Settings."));
       return;
     }
-    setAuthStatus("Entrando no Supabase...");
+    setAuthStatus(copy(language, "Entrando no Supabase...", "Signing in to Supabase..."));
     const { data, error } = await supabase.auth.signInWithPassword({
       email: authEmail.trim(),
       password: authPassword
@@ -2475,18 +2525,18 @@ function ProfilePage({
       setCloudUser({ id: data.user.id, email: data.user.email ?? authEmail.trim() });
       await loadProfileFromSupabase(data.user);
     }
-    setAuthStatus("Login concluido e perfil sincronizado.");
+    setAuthStatus(copy(language, "Login concluido e perfil sincronizado.", "Login complete and profile synced."));
   }
 
   async function signOutSupabase() {
     await supabase?.auth.signOut();
     setCloudUser(null);
-    setAuthStatus("Sessao Supabase encerrada.");
+    setAuthStatus(copy(language, "Sessao Supabase encerrada.", "Supabase session ended."));
   }
 
   async function saveProfileToSupabase(userOverride?: SupabaseUser) {
     if (!supabase) {
-      setAuthStatus("Supabase nao configurado.");
+      setAuthStatus(copy(language, "Supabase nao configurado.", "Supabase is not configured."));
       return;
     }
     const user =
@@ -2494,7 +2544,7 @@ function ProfilePage({
       (await supabase.auth.getUser()).data.user ??
       (cloudUser ? ({ id: cloudUser.id, email: cloudUser.email } as SupabaseUser) : null);
     if (!user) {
-      setAuthStatus("Faca login no Supabase antes de sincronizar.");
+      setAuthStatus(copy(language, "Faca login no Supabase antes de sincronizar.", "Sign in to Supabase before syncing."));
       return;
     }
 
@@ -2519,12 +2569,12 @@ function ProfilePage({
     });
 
     const error = profileError ?? settingsError;
-    setAuthStatus(error ? error.message : "Perfil e configuracoes enviados ao Supabase.");
+    setAuthStatus(error ? error.message : copy(language, "Perfil e configuracoes enviados ao Supabase.", "Profile and settings uploaded to Supabase."));
   }
 
   async function loadProfileFromSupabase(userOverride?: SupabaseUser) {
     if (!supabase) {
-      setAuthStatus("Supabase nao configurado.");
+      setAuthStatus(copy(language, "Supabase nao configurado.", "Supabase is not configured."));
       return;
     }
     const user =
@@ -2532,7 +2582,7 @@ function ProfilePage({
       (await supabase.auth.getUser()).data.user ??
       (cloudUser ? ({ id: cloudUser.id, email: cloudUser.email } as SupabaseUser) : null);
     if (!user) {
-      setAuthStatus("Faca login no Supabase antes de baixar o perfil.");
+      setAuthStatus(copy(language, "Faca login no Supabase antes de baixar o perfil.", "Sign in to Supabase before downloading the profile."));
       return;
     }
 
@@ -2556,20 +2606,20 @@ function ProfilePage({
         minecraftUuid: data.minecraft_uuid ?? "",
         avatarUrl: data.avatar_head_url ?? ""
       }));
-      setAuthStatus("Perfil baixado do Supabase.");
+      setAuthStatus(copy(language, "Perfil baixado do Supabase.", "Profile downloaded from Supabase."));
     }
   }
 
   async function connectMicrosoftMinecraft() {
     if (!window.everyHelper) {
-      setLookupStatus("Abra no app Electron para conectar Microsoft.");
+      setLookupStatus(copy(language, "Abra no app Electron para conectar Microsoft.", "Open the Electron app to connect Microsoft."));
       return;
     }
     if (!cloudConfig.microsoftClientId.trim()) {
-      setLookupStatus("Informe o Microsoft Client ID em Configuracoes.");
+      setLookupStatus(copy(language, "Informe o Microsoft Client ID em Configuracoes.", "Enter the Microsoft Client ID in Settings."));
       return;
     }
-    setLookupStatus("Abrindo login Microsoft...");
+    setLookupStatus(copy(language, "Abrindo login Microsoft...", "Opening Microsoft login..."));
     const result = await window.everyHelper.connectMicrosoftMinecraft({
       clientId: cloudConfig.microsoftClientId.trim()
     });
@@ -2615,11 +2665,11 @@ function ProfilePage({
           </div>
           <h2>{profile.displayName || "Player"}</h2>
           <p>{profile.minecraftUsername ? `@${profile.minecraftUsername}` : "@minecraft"}</p>
-          <span>{profile.pronouns || "pronomes"}</span>
+          <span>{profile.pronouns || copy(language, "pronomes", "pronouns")}</span>
         </div>
 
         <div className="settings-list">
-          <h3>Conta Helper</h3>
+          <h3>{copy(language, "Conta Helper", "Helper Account")}</h3>
           <div className="connect-row">
             <label>
               <span>Email Supabase</span>
@@ -2635,7 +2685,7 @@ function ProfilePage({
           </div>
           <div className="connect-row">
             <label>
-              <span>Senha</span>
+              <span>{copy(language, "Senha", "Password")}</span>
               <input
                 type="password"
                 value={authPassword}
@@ -2643,29 +2693,38 @@ function ProfilePage({
               />
             </label>
             <button onClick={signUpSupabase}>
-              <Plus size={16} /> Criar
+              <Plus size={16} /> {copy(language, "Criar", "Create")}
             </button>
           </div>
           <div className="action-row">
             <button disabled={!cloudUser} onClick={() => saveProfileToSupabase()}>
-              <Save size={16} /> Enviar nuvem
+              <Save size={16} /> {copy(language, "Enviar nuvem", "Upload cloud")}
             </button>
             <button disabled={!cloudUser} onClick={() => loadProfileFromSupabase()}>
-              <Download size={16} /> Baixar nuvem
+              <Download size={16} /> {copy(language, "Baixar nuvem", "Download cloud")}
             </button>
             <button disabled={!cloudUser} onClick={signOutSupabase}>
-              <X size={16} /> Sair
+              <X size={16} /> {copy(language, "Sair", "Sign out")}
             </button>
           </div>
           <p className="muted">
             {cloudUser
-              ? `Conectado como ${cloudUser.email || cloudUser.id}`
-              : authStatus || "Use Supabase Auth para sincronizar perfil entre maquinas."}
+              ? copy(
+                  language,
+                  `Conectado como ${cloudUser.email || cloudUser.id}`,
+                  `Connected as ${cloudUser.email || cloudUser.id}`
+                )
+              : authStatus ||
+                copy(
+                  language,
+                  "Use Supabase Auth para sincronizar perfil entre maquinas.",
+                  "Use Supabase Auth to sync your profile across devices."
+                )}
           </p>
           {authStatus && cloudUser && <p className="muted">{authStatus}</p>}
 
           <label>
-            <span>Nome de exibição</span>
+            <span>{copy(language, "Nome de exibicao", "Display name")}</span>
             <input
               value={profile.displayName}
               onChange={(event) =>
@@ -2693,7 +2752,7 @@ function ProfilePage({
             />
           </label>
           <label>
-            <span>Pronomes</span>
+            <span>{copy(language, "Pronomes", "Pronouns")}</span>
             <input
               value={profile.pronouns}
               onChange={(event) =>
@@ -2715,7 +2774,7 @@ function ProfilePage({
               />
             </label>
             <button onClick={connectMinecraft}>
-              <Search size={16} /> Conectar
+              <Search size={16} /> {copy(language, "Conectar", "Connect")}
             </button>
           </div>
           <div className="action-row">
@@ -2725,7 +2784,11 @@ function ProfilePage({
           </div>
           <p className="muted">
             {lookupStatus ||
-              "A busca por username usa API publica. O botao Microsoft OAuth usa Xbox Live/XSTS/Minecraft Services quando o Client ID esta configurado."}
+              copy(
+                language,
+                "A busca por username usa API publica. O botao Microsoft OAuth usa Xbox Live/XSTS/Minecraft Services quando o Client ID esta configurado.",
+                "Username lookup uses the public API. The Microsoft OAuth button uses Xbox Live/XSTS/Minecraft Services when the Client ID is configured."
+              )}
           </p>
         </div>
       </div>
@@ -2765,12 +2828,12 @@ function SettingsPage({
       try {
         const payload = JSON.parse(String(reader.result)) as CloudBackupPayload;
         if (payload.app !== "Every Helper for Minecraft") {
-          throw new Error("Arquivo nao e um backup do Every Helper.");
+          throw new Error(copy(language, "Arquivo nao e um backup do Every Helper.", "File is not an Every Helper backup."));
         }
         applyLocalBackupPayload(payload);
         location.reload();
       } catch {
-        alert("Backup invalido.");
+        alert(copy(language, "Backup invalido.", "Invalid backup."));
       }
     };
     reader.readAsText(file);
@@ -2779,10 +2842,10 @@ function SettingsPage({
 
   async function connectDrive() {
     if (!window.everyHelper) {
-      setCloudStatus("Abra no app Electron para conectar o Drive.");
+      setCloudStatus(copy(language, "Abra no app Electron para conectar o Drive.", "Open the Electron app to connect Drive."));
       return;
     }
-    setCloudStatus("Abrindo login Google...");
+    setCloudStatus(copy(language, "Abrindo login Google...", "Opening Google login..."));
     const result = await window.everyHelper.connectGoogleDrive({
       clientId: cloudConfig.googleClientId.trim()
     });
@@ -2794,33 +2857,33 @@ function SettingsPage({
 
   async function backupToDrive() {
     if (!window.everyHelper) {
-      setCloudStatus("Abra no app Electron para usar o Drive.");
+      setCloudStatus(copy(language, "Abra no app Electron para usar o Drive.", "Open the Electron app to use Drive."));
       return;
     }
-    setCloudStatus("Enviando backup ao Drive...");
+    setCloudStatus(copy(language, "Enviando backup ao Drive...", "Uploading backup to Drive..."));
     const result = await window.everyHelper.uploadDriveBackup({
       clientId: cloudConfig.googleClientId.trim(),
       payload: collectLocalBackupPayload()
     });
     setCloudStatus(
       result.ok
-        ? `${result.message} Arquivo: ${result.fileName ?? result.fileId}`
+        ? `${result.message} ${copy(language, "Arquivo", "File")}: ${result.fileName ?? result.fileId}`
         : result.message
     );
   }
 
   async function restoreFromDrive() {
     if (!window.everyHelper) {
-      setCloudStatus("Abra no app Electron para usar o Drive.");
+      setCloudStatus(copy(language, "Abra no app Electron para usar o Drive.", "Open the Electron app to use Drive."));
       return;
     }
-    setCloudStatus("Baixando backup do Drive...");
+    setCloudStatus(copy(language, "Baixando backup do Drive...", "Downloading backup from Drive..."));
     const result = await window.everyHelper.restoreDriveBackup({
       clientId: cloudConfig.googleClientId.trim()
     });
     if (result.ok && result.payload) {
       applyLocalBackupPayload(result.payload);
-      setCloudStatus(`${result.message} Reabrindo app...`);
+      setCloudStatus(`${result.message} ${copy(language, "Reabrindo app...", "Reopening app...")}`);
       setTimeout(() => location.reload(), 600);
       return;
     }
@@ -2875,7 +2938,7 @@ function SettingsPage({
             />
           </label>
           <label>
-            <span>Supabase anon key</span>
+            <span>{copy(language, "Supabase anon key", "Supabase anon key")}</span>
             <textarea
               className="credential-input"
               rows={2}
@@ -2919,11 +2982,11 @@ function SettingsPage({
                   microsoftClientId: event.target.value
                 }))
               }
-              placeholder="Client ID do Entra ID"
+              placeholder={copy(language, "Client ID do Entra ID", "Entra ID Client ID")}
             />
           </label>
           <Toggle
-            label="Google Drive sync"
+            label={copy(language, "Sincronizacao Google Drive", "Google Drive sync")}
             checked={settings.driveSync}
             onChange={(checked) =>
               setSettings((current) => ({ ...current, driveSync: checked }))
@@ -2947,8 +3010,11 @@ function SettingsPage({
             }
           />
           <p className="muted">
-            Essas credenciais sao IDs/chaves publicas de app cliente. Nao cole service
-            role, client secret ou senha aqui.
+            {copy(
+              language,
+              "Essas credenciais sao IDs/chaves publicas de app cliente. Nao cole service role, client secret ou senha aqui.",
+              "These credentials are public client app IDs/keys. Do not paste a service role key, client secret or password here."
+            )}
           </p>
         </div>
 
@@ -2956,13 +3022,13 @@ function SettingsPage({
           <h3>Backup</h3>
           <div className="action-row">
             <button onClick={exportBackup}>
-              <Download size={16} /> Backup local
+              <Download size={16} /> {copy(language, "Backup local", "Local backup")}
             </button>
             <button onClick={() => importRef.current?.click()}>
-              <Upload size={16} /> Restaurar
+              <Upload size={16} /> {copy(language, "Restaurar", "Restore")}
             </button>
             <button onClick={connectDrive}>
-              <Globe2 size={16} /> Conectar Drive
+              <Globe2 size={16} /> {copy(language, "Conectar Drive", "Connect Drive")}
             </button>
             <button onClick={backupToDrive}>
               <Save size={16} /> Drive backup
@@ -2973,8 +3039,12 @@ function SettingsPage({
             <input hidden ref={importRef} type="file" accept=".json" onChange={importBackup} />
           </div>
           <p className="muted">
-            O backup cobre skins, blueprints, perfil, mundos importados, modpacks e
-            configuracoes salvas. {cloudStatus}
+            {copy(
+              language,
+              "O backup cobre skins, blueprints, perfil, mundos importados, modpacks e configuracoes salvas.",
+              "Backup covers skins, blueprints, profile, imported worlds, modpacks and saved settings."
+            )}{" "}
+            {cloudStatus}
           </p>
         </div>
       </div>

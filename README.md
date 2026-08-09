@@ -76,8 +76,8 @@ VITE_MICROSOFT_CLIENT_ID=
 Crie uma tag para disparar o workflow:
 
 ```bash
-git tag v0.1.6
-git push origin v0.1.6
+git tag v0.1.7
+git push origin v0.1.7
 ```
 
 O workflow `.github/workflows/release.yml` compila no Windows e publica o `.exe` como asset da release. Se o repositorio continuar privado, o link de download so abre para usuarios autenticados com acesso ao repo.
