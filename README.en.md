@@ -14,19 +14,19 @@ Windows desktop app built with Electron, React, TypeScript and Vite. This delive
 - Java world-folder importer with `level.dat` reading, `.mca` chunk counting and Overworld/Nether/End region view.
 - Modpack manager by folder, `.jar` listing, config/resourcepack/shaderpack counts and isolated Minecraft Launcher profile creation with `launcher_profiles.json` backup.
 - Local profile with bio, pronouns and Minecraft avatar lookup via the public Mojang API.
-- Settings, local JSON backup/restore and Supabase/Drive/Microsoft flags.
+- Settings, local JSON backup/restore and Supabase/Drive/Microsoft connections.
 - Windows build through `electron-builder` and GitHub Releases workflow.
 
 ## Real integrations
 
-- Supabase: project `ctqgcnsfdvxtnkejeusd` has the migration in `supabase/migrations/20260809142000_every_helper_initial_schema.sql`, with user-owned tables and RLS.
+- Supabase: project `ctqgcnsfdvxtnkejeusd` has the migration in `supabase/migrations/20260809142000_every_helper_initial_schema.sql`, with user-owned tables and RLS. The app is already prefilled with the public URL and publishable key.
 - Google Drive: the app uses desktop OAuth with PKCE and `drive.file`, creates an `Every Helper` folder and uploads/restores JSON backups.
 - Microsoft/Minecraft: the app uses Microsoft OAuth, Xbox Live, XSTS and Minecraft Services to fetch UUID, username, skin and avatar when a Client ID is configured.
 - GitHub: the correct repo is `MiloRuback/E-Helper-for-Minecraft`, with a release workflow that builds the `.exe` installer.
 
 ## Public credentials needed
 
-- Supabase Auth needs the project's anon key in Settings or `.env`.
+- Supabase Auth is already configured with public URL and publishable key; users only need to sign up or sign in with email and password.
 - Google Drive needs an OAuth Client ID of type Desktop app.
 - Microsoft/Minecraft needs a Microsoft Entra ID/consumers Client ID with loopback redirect support.
 
@@ -57,3 +57,14 @@ npm run dist
 ```
 
 The NSIS installer is generated in `release/`.
+
+## GitHub release
+
+Create a tag to trigger the workflow:
+
+```bash
+git tag v0.1.1
+git push origin v0.1.1
+```
+
+The `.github/workflows/release.yml` workflow builds on Windows and publishes the `.exe` as a release asset. If the repository stays private, the download link only works for authenticated users with repo access.

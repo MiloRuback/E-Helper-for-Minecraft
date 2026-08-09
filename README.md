@@ -14,19 +14,19 @@ Aplicativo desktop para Windows feito com Electron, React, TypeScript e Vite. Es
 - Importador de mundos Java por pasta, leitura de `level.dat`, contagem de chunks em regioes `.mca` e visualizacao por Overworld/Nether/End.
 - Gerenciador de modpacks por pasta, listagem de `.jar`, configs, resourcepacks, shaderpacks e criacao de perfil isolado no Minecraft Launcher com backup do `launcher_profiles.json`.
 - Perfil local com bio, pronomes e busca de avatar por username usando a API publica da Mojang.
-- Configuracoes, backup/restauracao local em JSON e flags para Supabase/Drive/Microsoft.
+- Configuracoes, backup/restauracao local em JSON e conexoes para Supabase/Drive/Microsoft.
 - Build Windows com `electron-builder` e workflow de GitHub Releases.
 
 ## Integrações reais
 
-- Supabase: o projeto `ctqgcnsfdvxtnkejeusd` recebeu a migration em `supabase/migrations/20260809142000_every_helper_initial_schema.sql`, com tabelas e RLS para dados por usuario.
+- Supabase: o projeto `ctqgcnsfdvxtnkejeusd` recebeu a migration em `supabase/migrations/20260809142000_every_helper_initial_schema.sql`, com tabelas e RLS para dados por usuario. A URL e a publishable key ja ficam preenchidas no app.
 - Google Drive: o app usa OAuth de desktop com PKCE e escopo `drive.file`, cria a pasta `Every Helper` no Drive do usuario e faz backup/restauracao JSON.
 - Microsoft/Minecraft: o app usa OAuth Microsoft, Xbox Live, XSTS e Minecraft Services para obter UUID, username, skin e avatar quando o Client ID esta configurado.
 - GitHub: o repo correto e `MiloRuback/E-Helper-for-Minecraft`, com workflow de release para gerar o instalador `.exe`.
 
 ## O que precisa de credenciais publicas
 
-- Supabase Auth precisa da anon key do projeto no campo de Configuracoes ou em `.env`.
+- Supabase Auth ja vem configurado com URL e publishable key publicas; falta apenas o usuario criar/entrar com email e senha.
 - Google Drive precisa de um OAuth Client ID de tipo "Desktop app".
 - Microsoft/Minecraft precisa de um Client ID do Microsoft Entra ID/consumers com redirect loopback permitido.
 
@@ -63,8 +63,8 @@ O instalador NSIS sai em `release/` com assistente, instalacao por usuario, opca
 Copie `.env.example` para `.env` quando tiver credenciais reais:
 
 ```bash
-VITE_SUPABASE_URL=
-VITE_SUPABASE_ANON_KEY=
+VITE_SUPABASE_URL=https://ctqgcnsfdvxtnkejeusd.supabase.co
+VITE_SUPABASE_ANON_KEY=sb_publishable_d-LcR34jekfPRJ-pwZFVzA_gvMHMGj6
 VITE_GOOGLE_DRIVE_CLIENT_ID=
 VITE_MICROSOFT_CLIENT_ID=
 ```
@@ -74,8 +74,8 @@ VITE_MICROSOFT_CLIENT_ID=
 Crie uma tag para disparar o workflow:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.1.1
+git push origin v0.1.1
 ```
 
-O workflow `.github/workflows/release.yml` compila no Windows e publica o `.exe` como asset da release.
+O workflow `.github/workflows/release.yml` compila no Windows e publica o `.exe` como asset da release. Se o repositorio continuar privado, o link de download so abre para usuarios autenticados com acesso ao repo.

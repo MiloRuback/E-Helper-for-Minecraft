@@ -465,6 +465,9 @@ function biomeAt(seed: string, version: string, x: number, z: number) {
   return biomePalette[index];
 }
 
+const DEFAULT_SUPABASE_URL = "https://ctqgcnsfdvxtnkejeusd.supabase.co";
+const DEFAULT_SUPABASE_ANON_KEY = "sb_publishable_d-LcR34jekfPRJ-pwZFVzA_gvMHMGj6";
+
 function App() {
   const [settings, setSettings] = usePersistentState<AppSettings>(
     "ehm:settings",
@@ -474,7 +477,7 @@ function App() {
       firstRunCompleted: false,
       driveSync: false,
       microsoftLinked: false,
-      supabaseEnabled: Boolean(import.meta.env.VITE_SUPABASE_URL)
+      supabaseEnabled: Boolean(import.meta.env.VITE_SUPABASE_URL ?? DEFAULT_SUPABASE_URL)
     }
   );
   const [account, setAccount] = usePersistentState<LocalAccount | null>(
@@ -484,8 +487,8 @@ function App() {
   const [cloudConfig, setCloudConfig] = usePersistentState<CloudConfig>(
     "ehm:cloudConfig",
     {
-      supabaseUrl: import.meta.env.VITE_SUPABASE_URL ?? "https://ctqgcnsfdvxtnkejeusd.supabase.co",
-      supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY ?? "",
+      supabaseUrl: import.meta.env.VITE_SUPABASE_URL ?? DEFAULT_SUPABASE_URL,
+      supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY ?? DEFAULT_SUPABASE_ANON_KEY,
       googleClientId: import.meta.env.VITE_GOOGLE_DRIVE_CLIENT_ID ?? "",
       microsoftClientId: import.meta.env.VITE_MICROSOFT_CLIENT_ID ?? ""
     }
@@ -507,6 +510,15 @@ function App() {
 
   const language = settings.language;
   const supabase = useMemo(() => createSupabase(cloudConfig), [cloudConfig]);
+
+  useEffect(() => {
+    if (cloudConfig.supabaseUrl === DEFAULT_SUPABASE_URL && !cloudConfig.supabaseAnonKey.trim()) {
+      setCloudConfig((current) => ({
+        ...current,
+        supabaseAnonKey: DEFAULT_SUPABASE_ANON_KEY
+      }));
+    }
+  }, [cloudConfig.supabaseAnonKey, cloudConfig.supabaseUrl, setCloudConfig]);
 
   useEffect(() => {
     if (!supabase) return;
@@ -1216,7 +1228,7 @@ function SkinEditor({ language }: { language: Language }) {
           <canvas
             ref={canvasRef}
             className="skin-canvas"
-            style={{ width: 64 * zoom, height: 64 * zoom }}
+            style={{ width: `min(${64 * zoom}px, 100%)`, aspectRatio: "1" }}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={() => setIsDrawing(false)}
@@ -2653,7 +2665,10 @@ function SettingsPage({
           <h3>{t(language, "integrations")}</h3>
           <label>
             <span>Supabase URL</span>
-            <input
+            <textarea
+              className="credential-input"
+              rows={2}
+              spellCheck={false}
               value={cloudConfig.supabaseUrl}
               onChange={(event) =>
                 setCloudConfig((current) => ({
@@ -2666,7 +2681,10 @@ function SettingsPage({
           </label>
           <label>
             <span>Supabase anon key</span>
-            <input
+            <textarea
+              className="credential-input"
+              rows={2}
+              spellCheck={false}
               value={cloudConfig.supabaseAnonKey}
               onChange={(event) =>
                 setCloudConfig((current) => ({
@@ -2679,7 +2697,10 @@ function SettingsPage({
           </label>
           <label>
             <span>Google OAuth Client ID</span>
-            <input
+            <textarea
+              className="credential-input"
+              rows={2}
+              spellCheck={false}
               value={cloudConfig.googleClientId}
               onChange={(event) =>
                 setCloudConfig((current) => ({
@@ -2692,7 +2713,10 @@ function SettingsPage({
           </label>
           <label>
             <span>Microsoft OAuth Client ID</span>
-            <input
+            <textarea
+              className="credential-input"
+              rows={2}
+              spellCheck={false}
               value={cloudConfig.microsoftClientId}
               onChange={(event) =>
                 setCloudConfig((current) => ({

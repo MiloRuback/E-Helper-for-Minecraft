@@ -13,14 +13,15 @@ Use esta lista antes de apresentar ou publicar uma release.
 - [x] Gerenciador de modpack faz backup antes de alterar `launcher_profiles.json`.
 - [x] Configuracoes exportam/restauram backup local.
 - [x] Supabase schema aplicado com RLS no projeto conectado.
+- [x] Supabase URL e publishable key publicas configuradas no app e em `.env.example`.
 - [x] UI possui login/cadastro Supabase e sync de perfil/settings.
 - [x] Google Drive OAuth/backup/restore implementado no main process.
 - [x] Microsoft/Xbox/Minecraft OAuth implementado no main process.
 - [x] Importacao real de `.litematic`, `.schem` e `.nbt` Java Structure via conversor.
-- [x] QA visual Playwright desktop/mobile sem overflow.
+- [x] QA visual Playwright desktop/mobile sem overflow em 16 combinacoes de tela/pagina.
 - [x] Smoke test do executavel empacotado.
 - [ ] Testar instalador em uma maquina Windows limpa.
-- [ ] Testar Supabase Auth com anon key real colada no app.
+- [ ] Testar Supabase Auth com uma conta real de usuario.
 - [ ] Testar Drive/Microsoft com Client IDs reais.
 - [ ] Testar com mundo Minecraft real grande.
 - [ ] Testar com pasta real de modpack Forge/Fabric.
