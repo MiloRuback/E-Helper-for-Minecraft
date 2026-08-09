@@ -1,5 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, safeStorage, shell } from "electron";
-import { autoUpdater } from "electron-updater";
+import electronUpdater from "electron-updater";
 import type { OpenDialogOptions } from "electron";
 import { createHash, randomBytes } from "node:crypto";
 import { promises as fs } from "node:fs";
@@ -37,6 +37,7 @@ import type {
   WorldSummary
 } from "../shared/contracts.js";
 
+const { autoUpdater } = electronUpdater;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
 const REGION_SECTOR_BYTES = 4096;

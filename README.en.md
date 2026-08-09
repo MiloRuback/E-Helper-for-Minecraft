@@ -67,8 +67,8 @@ The NSIS installer is generated in `release/`.
 Create a tag to trigger the workflow:
 
 ```bash
-git tag v0.1.12
-git push origin v0.1.12
+git tag v0.1.13
+git push origin v0.1.13
 ```
 
 The `.github/workflows/release.yml` workflow builds on Windows and publishes the `.exe` as a release asset. The repository is public to avoid 404 errors on the download link.
