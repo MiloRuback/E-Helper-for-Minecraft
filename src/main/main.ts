@@ -1468,7 +1468,7 @@ async function fetchMinecraftProfile(microsoftAccessToken: string) {
     username,
     gamerTag: username,
     skinUrl,
-    avatarUrl: uuid ? `https://crafatar.com/avatars/${uuid}?size=128&overlay` : undefined,
+    avatarUrl: uuid ? `https://mc-heads.net/avatar/${uuid.replace(/-/g, "")}/128` : undefined,
     rawProfile: profile
   };
 }

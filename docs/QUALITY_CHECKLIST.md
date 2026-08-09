@@ -30,9 +30,10 @@ Use esta lista antes de apresentar ou publicar uma release.
 - [x] QA visual Playwright desktop/mobile sem overflow em 16 combinacoes de tela/pagina.
 - [x] QA visual Playwright em ingles sem overflow, sem erros de console e sem textos PT-BR criticos em 16 combinacoes de tela/pagina.
 - [x] QA dirigida do World Importer com dados simulados de bioma/heightmap no mobile.
+- [x] Avatar Minecraft do perfil migra URL antiga do Crafatar, carrega via `mc-heads.net` e possui fallback visual.
 - [x] Smoke test do executavel empacotado.
 - [x] Instalador validado localmente com instalacao silenciosa em pasta temporaria, abertura do app e desinstalacao.
-- [x] Instalador 0.1.13 validado localmente sem janela `Error` ou `JavaScript error` no processo principal.
+- [x] Instalador 0.1.14 validado localmente sem janela `Error` ou `JavaScript error` no processo principal.
 - [ ] Testar instalador em uma maquina Windows limpa.
 - [ ] Testar Supabase Auth com uma conta real de usuario.
 - [ ] Testar Drive/Microsoft com Client IDs reais.

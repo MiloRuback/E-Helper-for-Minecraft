@@ -388,6 +388,51 @@ function copy(language: Language, pt: string, en: string) {
   return language === "pt-br" ? pt : en;
 }
 
+function normalizeMinecraftSubject(uuidOrUsername: string) {
+  const value = uuidOrUsername.trim();
+  if (!value) return "";
+  return /^[0-9a-fA-F-]{32,36}$/.test(value) ? value.replace(/-/g, "") : value;
+}
+
+function minecraftAvatarUrl(uuidOrUsername: string) {
+  const subject = normalizeMinecraftSubject(uuidOrUsername);
+  return subject ? `https://mc-heads.net/avatar/${encodeURIComponent(subject)}/128` : "";
+}
+
+function minecraftAvatarFallbackUrl(uuidOrUsername: string) {
+  const subject = normalizeMinecraftSubject(uuidOrUsername);
+  return subject ? `https://minotar.net/avatar/${encodeURIComponent(subject)}/128.png` : "";
+}
+
+function isLegacyAvatarUrl(url: string) {
+  try {
+    return new URL(url).hostname.endsWith("crafatar.com");
+  } catch {
+    return url.includes("crafatar.com");
+  }
+}
+
+function bestMinecraftAvatarUrl(uuid: string, username: string, currentUrl = "") {
+  const subject = uuid.trim() || username.trim();
+  const generated = minecraftAvatarUrl(subject);
+  if (generated) return generated;
+  return currentUrl.trim();
+}
+
+function minecraftAvatarCandidates(profile: ProfileState) {
+  const subject = profile.minecraftUuid.trim() || profile.minecraftUsername.trim();
+  const saved = profile.avatarUrl.trim();
+  return Array.from(
+    new Set(
+      [
+        saved && !isLegacyAvatarUrl(saved) ? saved : "",
+        minecraftAvatarUrl(subject),
+        minecraftAvatarFallbackUrl(subject)
+      ].filter(Boolean)
+    )
+  );
+}
+
 function usePersistentState<T>(key: string, initialValue: T) {
   const [value, setValue] = useState<T>(() => {
     try {
@@ -2626,6 +2671,32 @@ function ProfilePage({
   const [authEmail, setAuthEmail] = useState(profile.email || account?.email || "");
   const [authPassword, setAuthPassword] = useState("");
   const [authStatus, setAuthStatus] = useState("");
+  const avatarCandidates = useMemo(() => minecraftAvatarCandidates(profile), [profile]);
+  const avatarKey = avatarCandidates.join("|");
+  const [avatarCandidateIndex, setAvatarCandidateIndex] = useState(0);
+  const avatarSrc = avatarCandidates[avatarCandidateIndex];
+
+  useEffect(() => {
+    setAvatarCandidateIndex(0);
+  }, [avatarKey]);
+
+  useEffect(() => {
+    const nextAvatarUrl = bestMinecraftAvatarUrl(
+      profile.minecraftUuid,
+      profile.minecraftUsername,
+      profile.avatarUrl
+    );
+    if (nextAvatarUrl && (!profile.avatarUrl || isLegacyAvatarUrl(profile.avatarUrl))) {
+      setProfile((current) =>
+        current.avatarUrl === nextAvatarUrl
+          ? current
+          : {
+              ...current,
+              avatarUrl: nextAvatarUrl
+            }
+      );
+    }
+  }, [profile.avatarUrl, profile.minecraftUsername, profile.minecraftUuid, setProfile]);
 
   async function connectMinecraft() {
     const username = profile.minecraftUsername.trim();
@@ -2641,7 +2712,7 @@ function ProfilePage({
         ...current,
         minecraftUsername: data.name,
         minecraftUuid: data.id,
-        avatarUrl: `https://crafatar.com/avatars/${data.id}?size=128&overlay`
+        avatarUrl: minecraftAvatarUrl(data.id)
       }));
       setLookupStatus(copy(language, "Perfil conectado pela API publica.", "Profile connected through the public API."));
     } catch (error) {
@@ -2715,6 +2786,11 @@ function ProfilePage({
       return;
     }
 
+    const avatarUrl = bestMinecraftAvatarUrl(
+      profile.minecraftUuid,
+      profile.minecraftUsername,
+      profile.avatarUrl
+    );
     const { error: profileError } = await supabase.from("profiles").upsert({
       id: user.id,
       display_name: profile.displayName || "Player",
@@ -2723,7 +2799,7 @@ function ProfilePage({
       minecraft_username: profile.minecraftUsername,
       minecraft_uuid: profile.minecraftUuid,
       microsoft_gamertag: profile.minecraftUsername,
-      avatar_head_url: profile.avatarUrl
+      avatar_head_url: avatarUrl
     });
     const { error: settingsError } = await supabase.from("user_settings").upsert({
       user_id: user.id,
@@ -2763,15 +2839,22 @@ function ProfilePage({
       return;
     }
     if (data) {
+      const minecraftUsername = data.minecraft_username ?? "";
+      const minecraftUuid = data.minecraft_uuid ?? "";
+      const avatarUrl = bestMinecraftAvatarUrl(
+        minecraftUuid,
+        minecraftUsername,
+        data.avatar_head_url ?? ""
+      );
       setProfile((current) => ({
         ...current,
         displayName: data.display_name ?? current.displayName,
         email: user.email ?? current.email,
         bio: data.bio ?? "",
         pronouns: data.pronouns ?? "",
-        minecraftUsername: data.minecraft_username ?? "",
-        minecraftUuid: data.minecraft_uuid ?? "",
-        avatarUrl: data.avatar_head_url ?? ""
+        minecraftUsername,
+        minecraftUuid,
+        avatarUrl
       }));
       setAuthStatus(copy(language, "Perfil baixado do Supabase.", "Profile downloaded from Supabase."));
     }
@@ -2798,7 +2881,11 @@ function ProfilePage({
       ...current,
       minecraftUsername: result.username ?? current.minecraftUsername,
       minecraftUuid: result.uuid ?? current.minecraftUuid,
-      avatarUrl: result.avatarUrl ?? current.avatarUrl
+      avatarUrl: bestMinecraftAvatarUrl(
+        result.uuid ?? current.minecraftUuid,
+        result.username ?? current.minecraftUsername,
+        result.avatarUrl ?? current.avatarUrl
+      )
     }));
     setLookupStatus(result.message);
   }
@@ -2824,8 +2911,17 @@ function ProfilePage({
       <div className="profile-layout">
         <div className="profile-card">
           <div className="avatar">
-            {profile.avatarUrl ? (
-              <img src={profile.avatarUrl} alt="Avatar Minecraft" />
+            {avatarSrc ? (
+              <img
+                key={avatarSrc}
+                src={avatarSrc}
+                alt="Avatar Minecraft"
+                onError={() =>
+                  setAvatarCandidateIndex((current) =>
+                    current < avatarCandidates.length ? current + 1 : current
+                  )
+                }
+              />
             ) : (
               <PixelLogo />
             )}
