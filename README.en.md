@@ -9,7 +9,7 @@ Windows desktop app built with Electron, React, TypeScript and Vite. This delive
 - Frameless desktop window, dark mode, responsive layout and 800x500 minimum size.
 - First-run onboarding with local account, PT-BR/EN-US language and preferences.
 - 64x64 skin editor with brush, eraser, fill bucket, eyedropper, base/overlay layers, symmetry, undo/redo, Steve/Alex templates, PNG import/export and `skinview3d` preview.
-- Blueprint editor with Y-layer grid, block palette, Three.js 3D preview and `.every-blueprint.json` import/export.
+- Blueprint editor with Y-layer grid, block palette, Three.js 3D preview, `.every-blueprint.json` import/export and `.litematic`, `.schem`, Java Structure `.nbt` import.
 - Deterministic offline Seed Map with seed, version, pan, zoom, coordinates, biomes and structure markers.
 - Java world-folder importer with `level.dat` reading, `.mca` chunk counting and Overworld/Nether/End region view.
 - Modpack manager by folder, `.jar` listing, config/resourcepack/shaderpack counts and isolated Minecraft Launcher profile creation with `launcher_profiles.json` backup.
