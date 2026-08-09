@@ -6,6 +6,14 @@ export interface RegionSummary {
   z: number;
   chunks: number;
   lastModified: string;
+  sampledChunks?: number;
+  minHeight?: number;
+  maxHeight?: number;
+  averageHeight?: number;
+  topBiomes?: Array<{
+    id: string;
+    count: number;
+  }>;
 }
 
 export interface DimensionSummary {

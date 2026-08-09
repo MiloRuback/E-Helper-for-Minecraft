@@ -55,6 +55,7 @@ import type {
   DimensionSummary,
   LauncherProfileResult,
   ModpackFolderSummary,
+  RegionSummary,
   WorldSummary
 } from "../shared/contracts";
 import "./styles.css";
@@ -1972,6 +1973,31 @@ function WorldImporter({ language }: { language: Language }) {
               <>
                 <Stat label="Arquivo" value={selectedRegion.fileName} />
                 <Stat label="Chunks" value={String(selectedRegion.chunks)} />
+                <Stat
+                  label="Amostras"
+                  value={String(selectedRegion.sampledChunks ?? 0)}
+                />
+                <Stat
+                  label="Bioma"
+                  value={formatBiomeName(selectedRegion.topBiomes?.[0]?.id)}
+                />
+                <Stat
+                  label="Altura media"
+                  value={
+                    selectedRegion.averageHeight !== undefined
+                      ? String(selectedRegion.averageHeight)
+                      : "Sem heightmap"
+                  }
+                />
+                <Stat
+                  label="Relevo"
+                  value={
+                    selectedRegion.minHeight !== undefined &&
+                    selectedRegion.maxHeight !== undefined
+                      ? `${selectedRegion.minHeight} - ${selectedRegion.maxHeight}`
+                      : "Sem dados"
+                  }
+                />
                 <Stat label="Alterado" value={readableDate(selectedRegion.lastModified)} />
               </>
             ) : (
@@ -1989,7 +2015,7 @@ function RegionMap({
   selectedRegion
 }: {
   dimension?: DimensionSummary;
-  selectedRegion?: { x: number; z: number };
+  selectedRegion?: RegionSummary;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -2026,8 +2052,13 @@ function RegionMap({
       const x = originX + (region.x - minX) * cell;
       const z = originZ + (region.z - minZ) * cell;
       const intensity = Math.min(1, region.chunks / 1024);
-      ctx.fillStyle = `rgba(${70 + intensity * 65}, ${180 + intensity * 40}, ${145}, 0.92)`;
+      ctx.fillStyle = regionColor(region, intensity);
       ctx.fillRect(x + 1, z + 1, cell - 2, cell - 2);
+      if (region.averageHeight !== undefined && cell > 34) {
+        const relief = Math.max(0, Math.min(1, (region.averageHeight - 48) / 128));
+        ctx.fillStyle = `rgba(255, 255, 255, ${0.08 + relief * 0.22})`;
+        ctx.fillRect(x + 2, z + 2, cell - 4, Math.max(2, (cell - 4) * relief));
+      }
       if (selectedRegion && selectedRegion.x === region.x && selectedRegion.z === region.z) {
         ctx.strokeStyle = "#f2c94c";
         ctx.lineWidth = 3;
@@ -2037,6 +2068,52 @@ function RegionMap({
   }, [dimension, selectedRegion]);
 
   return <canvas className="region-map" ref={canvasRef} />;
+}
+
+function regionColor(region: RegionSummary, intensity: number) {
+  const base = colorForBiome(region.topBiomes?.[0]?.id);
+  const height = region.averageHeight ?? 64;
+  const shade = Math.max(-0.22, Math.min(0.32, (height - 72) / 220));
+  const rgb = hexToRgb(base);
+  const mix = (channel: number) =>
+    Math.round(Math.max(0, Math.min(255, channel + 255 * shade + intensity * 24)));
+  return `rgba(${mix(rgb.r)}, ${mix(rgb.g)}, ${mix(rgb.b)}, 0.94)`;
+}
+
+function colorForBiome(id?: string) {
+  if (!id) return "#5aa68d";
+  if (id.includes("desert") || id.includes("badlands")) return "#d4b35f";
+  if (id.includes("snow") || id.includes("frozen") || id.includes("ice")) return "#c9e4ef";
+  if (id.includes("ocean") || id.includes("river")) return "#3a6ea5";
+  if (id.includes("swamp") || id.includes("mangrove")) return "#4c7a4f";
+  if (id.includes("jungle")) return "#2f8a45";
+  if (id.includes("forest") || id.includes("taiga")) return "#3f7d46";
+  if (id.includes("mountain") || id.includes("peak") || id.includes("slope")) {
+    return "#8d958f";
+  }
+  if (id.includes("nether") || id.includes("basalt") || id.includes("crimson")) {
+    return "#9e3f35";
+  }
+  if (id.includes("end")) return "#b8b574";
+  return "#62a96f";
+}
+
+function hexToRgb(hex: string) {
+  const value = hex.replace("#", "");
+  return {
+    r: Number.parseInt(value.slice(0, 2), 16),
+    g: Number.parseInt(value.slice(2, 4), 16),
+    b: Number.parseInt(value.slice(4, 6), 16)
+  };
+}
+
+function formatBiomeName(id?: string) {
+  if (!id) return "Nao encontrado";
+  return id
+    .replace(/^minecraft:/, "")
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 function ModpacksPage({ language }: { language: Language }) {

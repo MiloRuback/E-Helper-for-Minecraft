@@ -11,7 +11,7 @@ Windows desktop app built with Electron, React, TypeScript and Vite. This delive
 - 64x64 skin editor with brush, eraser, fill bucket, eyedropper, base/overlay layers, symmetry, undo/redo, Steve/Alex templates, PNG import/export and `skinview3d` preview.
 - Blueprint editor with Y-layer grid, block palette, Three.js 3D preview, `.every-blueprint.json` import/export, Java Structure `.nbt` export and `.litematic`, `.schem`, Java Structure `.nbt` import.
 - Deterministic offline Seed Map with seed, version, pan, zoom, coordinates, biomes and structure markers.
-- Java world-folder importer with `level.dat` reading, `.mca` chunk counting and Overworld/Nether/End region view.
+- Java world-folder importer with `level.dat` reading, `.mca` chunk counting, heightmap/biome sampling and Overworld/Nether/End region view.
 - Modpack manager by folder, `.jar` listing, config/resourcepack/shaderpack counts and isolated Minecraft Launcher profile creation with `launcher_profiles.json` backup.
 - Local profile with bio, pronouns and Minecraft avatar lookup via the public Mojang API.
 - Settings, local JSON backup/restore and Supabase/Drive/Microsoft connections.
@@ -23,6 +23,7 @@ Windows desktop app built with Electron, React, TypeScript and Vite. This delive
 - Google Drive: the app uses desktop OAuth with PKCE and `drive.file`, creates an `Every Helper` folder and uploads/restores JSON backups.
 - Microsoft/Minecraft: the app uses Microsoft OAuth, Xbox Live, XSTS and Minecraft Services to fetch UUID, username, skin and avatar when a Client ID is configured.
 - GitHub: the correct repo is `MiloRuback/E-Helper-for-Minecraft`, with a release workflow that builds the `.exe` installer.
+- Auto-update: the packaged app uses `electron-updater` to check new versions published in GitHub Releases.
 
 ## Public credentials needed
 
@@ -65,8 +66,8 @@ The NSIS installer is generated in `release/`.
 Create a tag to trigger the workflow:
 
 ```bash
-git tag v0.1.3
-git push origin v0.1.3
+git tag v0.1.4
+git push origin v0.1.4
 ```
 
 The `.github/workflows/release.yml` workflow builds on Windows and publishes the `.exe` as a release asset. If the repository stays private, the download link only works for authenticated users with repo access.

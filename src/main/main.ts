@@ -1,7 +1,9 @@
 import { app, BrowserWindow, dialog, ipcMain, safeStorage, shell } from "electron";
+import { autoUpdater } from "electron-updater";
 import type { OpenDialogOptions } from "electron";
 import { createHash, randomBytes } from "node:crypto";
 import { promises as fs } from "node:fs";
+import type { FileHandle } from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -30,8 +32,43 @@ import type {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
+const REGION_SECTOR_BYTES = 4096;
+const REGION_CHUNK_COUNT = 1024;
+const MAX_SAMPLED_CHUNKS_PER_REGION = 24;
 
 let mainWindow: BrowserWindow | null = null;
+
+interface ChunkLocation {
+  index: number;
+  offset: number;
+  sectors: number;
+}
+
+interface ChunkSample {
+  averageHeight?: number;
+  minHeight?: number;
+  maxHeight?: number;
+  biomes: string[];
+}
+
+interface RegionAnalysis {
+  chunks: number;
+  sampledChunks: number;
+  minHeight?: number;
+  maxHeight?: number;
+  averageHeight?: number;
+  topBiomes?: Array<{
+    id: string;
+    count: number;
+  }>;
+}
+
+type PrismarineNbtParser = {
+  parse: (data: Buffer) => Promise<{ parsed?: unknown } | unknown>;
+  simplify: (value: unknown) => Record<string, unknown>;
+};
+
+let prismarineNbtParser: Promise<PrismarineNbtParser> | null = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -62,6 +99,7 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow();
+  startAutoUpdateCheck();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -69,6 +107,13 @@ app.whenReady().then(() => {
     }
   });
 });
+
+function startAutoUpdateCheck() {
+  if (isDev) return;
+  setTimeout(() => {
+    autoUpdater.checkForUpdatesAndNotify().catch(() => undefined);
+  }, 2500);
+}
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
@@ -447,12 +492,18 @@ async function scanDimension(
 
     const fullPath = path.join(regionPath, fileName);
     const stat = await fs.stat(fullPath);
+    const analysis = await analyzeRegionFile(fullPath);
     regions.push({
       fileName,
       x: Number(match[1]),
       z: Number(match[2]),
-      chunks: await countRegionChunks(fullPath),
-      lastModified: stat.mtime.toISOString()
+      chunks: analysis.chunks,
+      lastModified: stat.mtime.toISOString(),
+      sampledChunks: analysis.sampledChunks || undefined,
+      minHeight: analysis.minHeight,
+      maxHeight: analysis.maxHeight,
+      averageHeight: analysis.averageHeight,
+      topBiomes: analysis.topBiomes
     });
   }
 
@@ -467,21 +518,246 @@ async function scanDimension(
   };
 }
 
-async function countRegionChunks(filePath: string) {
+async function analyzeRegionFile(filePath: string): Promise<RegionAnalysis> {
   const handle = await fs.open(filePath, "r");
   try {
-    const buffer = Buffer.alloc(4096);
-    await handle.read(buffer, 0, 4096, 0);
-    let chunks = 0;
-    for (let i = 0; i < 1024; i += 1) {
+    const buffer = Buffer.alloc(REGION_SECTOR_BYTES);
+    await handle.read(buffer, 0, REGION_SECTOR_BYTES, 0);
+    const locations: ChunkLocation[] = [];
+    for (let i = 0; i < REGION_CHUNK_COUNT; i += 1) {
       const offset = buffer.readUIntBE(i * 4, 3);
       const sectorCount = buffer[i * 4 + 3];
-      if (offset > 0 && sectorCount > 0) chunks += 1;
+      if (offset > 0 && sectorCount > 0) {
+        locations.push({ index: i, offset, sectors: sectorCount });
+      }
     }
-    return chunks;
+
+    const heightValues: number[] = [];
+    const biomeCounts = new Map<string, number>();
+    let sampledChunks = 0;
+
+    for (const location of spreadSample(locations, MAX_SAMPLED_CHUNKS_PER_REGION)) {
+      const sample = await readChunkSample(handle, location);
+      if (!sample) continue;
+      sampledChunks += 1;
+      if (sample.averageHeight !== undefined) heightValues.push(sample.averageHeight);
+      sample.biomes.forEach((biome) => {
+        biomeCounts.set(biome, (biomeCounts.get(biome) ?? 0) + 1);
+      });
+    }
+
+    const minHeight = heightValues.length ? Math.min(...heightValues) : undefined;
+    const maxHeight = heightValues.length ? Math.max(...heightValues) : undefined;
+    const averageHeight = heightValues.length
+      ? Math.round(
+          heightValues.reduce((sum, value) => sum + value, 0) / heightValues.length
+        )
+      : undefined;
+
+    return {
+      chunks: locations.length,
+      sampledChunks,
+      minHeight,
+      maxHeight,
+      averageHeight,
+      topBiomes: Array.from(biomeCounts.entries())
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .slice(0, 3)
+        .map(([id, count]) => ({ id, count }))
+    };
   } finally {
     await handle.close();
   }
+}
+
+async function readChunkSample(
+  handle: FileHandle,
+  location: ChunkLocation
+): Promise<ChunkSample | null> {
+  try {
+    const header = Buffer.alloc(5);
+    const byteOffset = location.offset * REGION_SECTOR_BYTES;
+    const { bytesRead } = await handle.read(header, 0, header.length, byteOffset);
+    if (bytesRead < header.length) return null;
+
+    const length = header.readUInt32BE(0);
+    const compression = header[4];
+    const maxLength = location.sectors * REGION_SECTOR_BYTES - 5;
+    if (length <= 1 || length - 1 > maxLength) return null;
+
+    const compressed = Buffer.alloc(length - 1);
+    await handle.read(compressed, 0, compressed.length, byteOffset + 5);
+
+    let payload: Buffer;
+    if (compression === 1) payload = zlib.gunzipSync(compressed);
+    else if (compression === 2) payload = zlib.inflateSync(compressed);
+    else if (compression === 3) payload = compressed;
+    else return null;
+
+    const nbt = await getPrismarineNbtParser();
+    const parsed = await nbt.parse(payload);
+    const simplified = nbt.simplify(
+      typeof parsed === "object" && parsed !== null && "parsed" in parsed
+        ? (parsed as { parsed?: unknown }).parsed
+        : parsed
+    );
+    const chunk = asRecord(simplified.Level ?? simplified);
+    const heightStats = extractHeightStats(chunk);
+
+    return {
+      averageHeight: heightStats.average,
+      minHeight: heightStats.min,
+      maxHeight: heightStats.max,
+      biomes: extractBiomeNames(chunk)
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function getPrismarineNbtParser() {
+  prismarineNbtParser ??= import("prismarine-nbt").then((module) => {
+    const candidate = (module as unknown as { default?: PrismarineNbtParser }).default;
+    return (candidate ?? module) as unknown as PrismarineNbtParser;
+  });
+  return prismarineNbtParser;
+}
+
+function spreadSample<T>(items: T[], limit: number) {
+  if (items.length <= limit) return items;
+  const selected: T[] = [];
+  const used = new Set<number>();
+  const step = (items.length - 1) / Math.max(1, limit - 1);
+  for (let i = 0; i < limit; i += 1) {
+    const index = Math.min(items.length - 1, Math.round(i * step));
+    if (!used.has(index)) {
+      used.add(index);
+      selected.push(items[index]);
+    }
+  }
+  return selected;
+}
+
+function extractHeightStats(chunk: Record<string, unknown>) {
+  const heightmaps = asRecord(chunk.Heightmaps ?? chunk.heightmaps);
+  const packed = packedLongArray(
+    heightmaps.WORLD_SURFACE ??
+      heightmaps.MOTION_BLOCKING_NO_LEAVES ??
+      heightmaps.MOTION_BLOCKING ??
+      heightmaps.OCEAN_FLOOR
+  );
+  if (!packed.length) return {};
+
+  const heights = unpackHeightmap(packed).filter(
+    (height) => Number.isFinite(height) && height > -128 && height < 1024
+  );
+  if (!heights.length) return {};
+
+  return {
+    min: Math.min(...heights),
+    max: Math.max(...heights),
+    average: Math.round(
+      heights.reduce((sum, height) => sum + height, 0) / heights.length
+    )
+  };
+}
+
+function unpackHeightmap(values: bigint[]) {
+  const bitsPerValue = Math.max(
+    9,
+    Math.min(16, Math.floor((values.length * 64) / 256))
+  );
+  const mask = (1n << BigInt(bitsPerValue)) - 1n;
+  const heights: number[] = [];
+
+  for (let i = 0; i < 256; i += 1) {
+    const bitIndex = i * bitsPerValue;
+    const longIndex = Math.floor(bitIndex / 64);
+    const startBit = bitIndex % 64;
+    const current = BigInt.asUintN(64, values[longIndex] ?? 0n);
+    let raw = current >> BigInt(startBit);
+    if (startBit + bitsPerValue > 64) {
+      const next = BigInt.asUintN(64, values[longIndex + 1] ?? 0n);
+      raw |= next << BigInt(64 - startBit);
+    }
+    heights.push(Number(raw & mask));
+  }
+
+  return heights;
+}
+
+function packedLongArray(value: unknown): bigint[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => {
+        if (typeof item === "bigint") return item;
+        if (typeof item === "number" && Number.isFinite(item)) return BigInt(item);
+        if (typeof item === "string" && /^-?\d+$/.test(item)) return BigInt(item);
+        return null;
+      })
+      .filter((item): item is bigint => item !== null);
+  }
+  if (value && typeof value === "object" && "value" in value) {
+    return packedLongArray((value as { value?: unknown }).value);
+  }
+  return [];
+}
+
+function extractBiomeNames(chunk: Record<string, unknown>) {
+  const counts = new Map<string, number>();
+  const sections = asArray(chunk.sections ?? chunk.Sections);
+
+  sections.forEach((section) => {
+    const sectionRecord = asRecord(section);
+    const biomes = asRecord(sectionRecord.biomes ?? sectionRecord.Biomes);
+    const palette = asArray(biomes.palette ?? biomes.Palette);
+    palette.forEach((entry) => {
+      const biome = biomeNameFromValue(entry);
+      if (biome) counts.set(biome, (counts.get(biome) ?? 0) + 1);
+    });
+  });
+
+  asArray(chunk.Biomes ?? chunk.biomes).forEach((entry) => {
+    const biome = biomeNameFromValue(entry);
+    if (biome) counts.set(biome, (counts.get(biome) ?? 0) + 1);
+  });
+
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 4)
+    .map(([biome]) => biome);
+}
+
+function biomeNameFromValue(value: unknown): string | null {
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return legacyBiomeName(value);
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return valueAsString(record.Name ?? record.name) ?? null;
+  }
+  return null;
+}
+
+function legacyBiomeName(id: number) {
+  const biomes: Record<number, string> = {
+    0: "minecraft:ocean",
+    1: "minecraft:plains",
+    2: "minecraft:desert",
+    3: "minecraft:mountains",
+    4: "minecraft:forest",
+    5: "minecraft:taiga",
+    6: "minecraft:swamp",
+    7: "minecraft:river",
+    12: "minecraft:snowy_plains",
+    14: "minecraft:mushroom_fields",
+    16: "minecraft:beach",
+    21: "minecraft:jungle",
+    27: "minecraft:birch_forest",
+    29: "minecraft:dark_forest",
+    32: "minecraft:savanna",
+    35: "minecraft:badlands"
+  };
+  return biomes[id] ?? `minecraft:biome_${id}`;
 }
 
 async function inspectModpackFolder(folderPath: string): Promise<ModpackFolderSummary> {
@@ -649,6 +925,17 @@ async function existsPath(targetPath: string) {
   } catch {
     return false;
   }
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return {};
+}
+
+function asArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
 }
 
 function valueAsString(value: unknown) {

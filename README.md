@@ -11,7 +11,7 @@ Aplicativo desktop para Windows feito com Electron, React, TypeScript e Vite. Es
 - Editor de skins 64x64 com pincel, borracha, balde, conta-gotas, camadas base/overlay, simetria, undo/redo, templates Steve/Alex, importacao/exportacao PNG e preview 3D via `skinview3d`.
 - Editor de blueprints com grade por camada Y, paleta de blocos, preview 3D via Three.js, exportacao/importacao `.every-blueprint.json`, exportacao Java Structure `.nbt` e importacao de `.litematic`, `.schem` e Java Structure `.nbt`.
 - Seed Map offline deterministico com seed, versao, pan, zoom, coordenadas, biomas e marcadores de estrutura.
-- Importador de mundos Java por pasta, leitura de `level.dat`, contagem de chunks em regioes `.mca` e visualizacao por Overworld/Nether/End.
+- Importador de mundos Java por pasta, leitura de `level.dat`, contagem de chunks em regioes `.mca`, amostragem de heightmaps/biomas e visualizacao por Overworld/Nether/End.
 - Gerenciador de modpacks por pasta, listagem de `.jar`, configs, resourcepacks, shaderpacks e criacao de perfil isolado no Minecraft Launcher com backup do `launcher_profiles.json`.
 - Perfil local com bio, pronomes e busca de avatar por username usando a API publica da Mojang.
 - Configuracoes, backup/restauracao local em JSON e conexoes para Supabase/Drive/Microsoft.
@@ -23,6 +23,7 @@ Aplicativo desktop para Windows feito com Electron, React, TypeScript e Vite. Es
 - Google Drive: o app usa OAuth de desktop com PKCE e escopo `drive.file`, cria a pasta `Every Helper` no Drive do usuario e faz backup/restauracao JSON.
 - Microsoft/Minecraft: o app usa OAuth Microsoft, Xbox Live, XSTS e Minecraft Services para obter UUID, username, skin e avatar quando o Client ID esta configurado.
 - GitHub: o repo correto e `MiloRuback/E-Helper-for-Minecraft`, com workflow de release para gerar o instalador `.exe`.
+- Auto-update: o app empacotado usa `electron-updater` para buscar novas versoes publicadas nas GitHub Releases.
 
 ## O que precisa de credenciais publicas
 
@@ -76,8 +77,8 @@ VITE_MICROSOFT_CLIENT_ID=
 Crie uma tag para disparar o workflow:
 
 ```bash
-git tag v0.1.3
-git push origin v0.1.3
+git tag v0.1.4
+git push origin v0.1.4
 ```
 
 O workflow `.github/workflows/release.yml` compila no Windows e publica o `.exe` como asset da release. Se o repositorio continuar privado, o link de download so abre para usuarios autenticados com acesso ao repo.

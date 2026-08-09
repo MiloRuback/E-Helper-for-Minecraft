@@ -56,13 +56,13 @@ Se a Microsoft negar o uso de `XboxLive.signin`, o app ainda tem plano B via API
 
 ## GitHub / Release
 
-O workflow `.github/workflows/release.yml` cria a release quando uma tag `v*` e enviada. A versao atual e `v0.1.3`.
+O workflow `.github/workflows/release.yml` cria a release quando uma tag `v*` e enviada. A versao atual e `v0.1.4`.
 
 O repositorio `MiloRuback/E-Helper-for-Minecraft` esta privado. Enquanto continuar privado, links como `https://github.com/MiloRuback/E-Helper-for-Minecraft/releases/latest` retornam 404 para pessoas sem acesso. Para download publico no GitHub, torne o repositorio publico ou publique o asset em um repo publico.
 
 Tambem ha uma copia do instalador no Google Drive em `Every Helper for Minecraft - Release`:
 
 ```text
-Every-Helper-for-Minecraft-Setup-0.1.3.exe
-https://drive.google.com/file/d/1gZEIak6WepIDQAi2gmHMZyCgcbZAuXAy/view?usp=drivesdk
+Every-Helper-for-Minecraft-Setup-0.1.4.exe
+https://drive.google.com/file/d/12Sx6IrMElj4vgBGWDYwCITUvn4CxZ37q/view?usp=drivesdk
 ```
