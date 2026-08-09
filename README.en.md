@@ -14,7 +14,7 @@ Windows desktop app built with Electron, React, TypeScript and Vite. This delive
 - Blueprint editor with Y-layer grid, block palette, Three.js 3D preview, `.every-blueprint.json` import/export, Java Structure `.nbt` export, Sponge/WorldEdit `.schem` export, Litematica `.litematic` export and `.litematic`, `.schem`, Java Structure `.nbt` import.
 - Seed Map with Cubiomes WASM, official Mojang release list while online, 102-version offline fallback, seed, pan, zoom, coordinates, real biomes and structure markers.
 - Java world-folder importer with `level.dat` reading, `.mca` chunk counting, heightmap/biome sampling and Overworld/Nether/End region view.
-- Modpack manager by folder, `.jar` listing, config/resourcepack/shaderpack counts and isolated Minecraft Launcher profile creation with `launcher_profiles.json` backup.
+- Modpack manager by folder, `.jar` listing, config/resourcepack/shaderpack counts, shareable `.zip` export and isolated Minecraft Launcher profile creation with `launcher_profiles.json` backup.
 - Local profile with bio, pronouns and Minecraft avatar lookup via the public Mojang API.
 - Settings, local JSON backup/restore and Supabase/Drive/Microsoft connections.
 - Windows build through `electron-builder` and GitHub Releases workflow.
@@ -67,8 +67,8 @@ The NSIS installer is generated in `release/`.
 Create a tag to trigger the workflow:
 
 ```bash
-git tag v0.1.11
-git push origin v0.1.11
+git tag v0.1.12
+git push origin v0.1.12
 ```
 
 The `.github/workflows/release.yml` workflow builds on Windows and publishes the `.exe` as a release asset. The repository is public to avoid 404 errors on the download link.

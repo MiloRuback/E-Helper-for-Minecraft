@@ -60,6 +60,7 @@ import type {
   CloudBackupPayload,
   DimensionSummary,
   LauncherProfileResult,
+  ModpackArchiveResult,
   ModpackFolderSummary,
   RegionSummary,
   WorldSummary
@@ -2402,7 +2403,9 @@ function ModpacksPage({ language }: { language: Language }) {
   const [loader, setLoader] = useState<SavedModpack["loader"]>("fabric");
   const [description, setDescription] = useState("");
   const [pendingFolder, setPendingFolder] = useState<ModpackFolderSummary | null>(null);
-  const [lastResult, setLastResult] = useState<LauncherProfileResult | null>(null);
+  const [lastResult, setLastResult] = useState<
+    LauncherProfileResult | ModpackArchiveResult | null
+  >(null);
 
   async function importFolder() {
     if (!window.everyHelper) {
@@ -2450,6 +2453,22 @@ function ModpacksPage({ language }: { language: Language }) {
     if (result.ok) {
       await window.everyHelper.openMinecraftLauncher();
     }
+  }
+
+  async function exportArchive(pack: SavedModpack) {
+    if (!window.everyHelper || !pack.folder.path) {
+      alert(copy(language, "Exportacao ZIP funciona dentro do app Electron.", "ZIP export works inside the Electron app."));
+      return;
+    }
+    const result = await window.everyHelper.exportModpackArchive({
+      id: pack.id,
+      name: pack.name,
+      sourcePath: pack.folder.path,
+      minecraftVersion: pack.minecraftVersion,
+      loader: pack.loader,
+      description: pack.description
+    });
+    setLastResult(result);
   }
 
   return (
@@ -2563,6 +2582,9 @@ function ModpacksPage({ language }: { language: Language }) {
                     }
                   >
                     <Download size={16} /> {copy(language, "Exportar", "Export")}
+                  </button>
+                  <button onClick={() => exportArchive(pack)}>
+                    <FileArchive size={16} /> ZIP
                   </button>
                 </div>
               </article>

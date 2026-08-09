@@ -14,7 +14,7 @@ Aplicativo desktop para Windows feito com Electron, React, TypeScript e Vite. Es
 - Editor de blueprints com grade por camada Y, paleta de blocos, preview 3D via Three.js, exportacao/importacao `.every-blueprint.json`, exportacao Java Structure `.nbt`, exportacao Sponge/WorldEdit `.schem`, exportacao Litematica `.litematic` e importacao de `.litematic`, `.schem` e Java Structure `.nbt`.
 - Seed Map com Cubiomes WASM, lista oficial de releases da Mojang quando online, fallback offline com 102 versoes, seed, pan, zoom, coordenadas, biomas reais e marcadores de estrutura.
 - Importador de mundos Java por pasta, leitura de `level.dat`, contagem de chunks em regioes `.mca`, amostragem de heightmaps/biomas e visualizacao por Overworld/Nether/End.
-- Gerenciador de modpacks por pasta, listagem de `.jar`, configs, resourcepacks, shaderpacks e criacao de perfil isolado no Minecraft Launcher com backup do `launcher_profiles.json`.
+- Gerenciador de modpacks por pasta, listagem de `.jar`, configs, resourcepacks, shaderpacks, exportacao `.zip` compartilhavel e criacao de perfil isolado no Minecraft Launcher com backup do `launcher_profiles.json`.
 - Perfil local com bio, pronomes e busca de avatar por username usando a API publica da Mojang.
 - Configuracoes, backup/restauracao local em JSON e conexoes para Supabase/Drive/Microsoft.
 - Build Windows com `electron-builder` e workflow de GitHub Releases.
@@ -78,8 +78,8 @@ VITE_MICROSOFT_CLIENT_ID=
 Crie uma tag para disparar o workflow:
 
 ```bash
-git tag v0.1.11
-git push origin v0.1.11
+git tag v0.1.12
+git push origin v0.1.12
 ```
 
 O workflow `.github/workflows/release.yml` compila no Windows e publica o `.exe` como asset da release. O repositorio esta publico para evitar 404 no link de download.

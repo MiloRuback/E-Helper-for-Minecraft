@@ -12,6 +12,7 @@ Use esta lista antes de apresentar ou publicar uma release.
 - [x] Seed Map carrega a lista oficial de releases da Mojang quando online e possui fallback offline com 102 versoes.
 - [x] Importador de mundo nao altera arquivos do save.
 - [x] Gerenciador de modpack faz backup antes de alterar `launcher_profiles.json`.
+- [x] Gerenciador de modpack exporta `.zip` compartilhavel com manifest `every-helper-modpack.json`.
 - [x] Configuracoes exportam/restauram backup local.
 - [x] App empacotado consulta GitHub Releases via `electron-updater`.
 - [x] Supabase schema aplicado com RLS no projeto conectado.

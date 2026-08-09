@@ -75,6 +75,22 @@ export interface LauncherProfileResult {
   backupPath?: string;
 }
 
+export interface ModpackArchiveRequest {
+  id: string;
+  name: string;
+  sourcePath: string;
+  minecraftVersion: string;
+  loader: "forge" | "fabric" | "quilt" | "vanilla";
+  description?: string;
+}
+
+export interface ModpackArchiveResult {
+  ok: boolean;
+  message: string;
+  archivePath?: string;
+  sizeMb?: number;
+}
+
 export interface BlueprintConvertRequest {
   fileName: string;
   bytes: number[];
@@ -176,6 +192,9 @@ export interface BridgeApi {
     request: LauncherProfileRequest
   ) => Promise<LauncherProfileResult>;
   openMinecraftLauncher: () => Promise<LauncherProfileResult>;
+  exportModpackArchive: (
+    request: ModpackArchiveRequest
+  ) => Promise<ModpackArchiveResult>;
   convertBlueprint: (
     request: BlueprintConvertRequest
   ) => Promise<BlueprintConvertResult>;

@@ -13,6 +13,7 @@ import {
   exportBlueprintToNbt,
   exportBlueprintToSchem
 } from "./blueprintNbt.js";
+import { safeArchiveStem, writeModpackZip } from "./modpackArchive.js";
 import type {
   CloudBackupPayload,
   BlueprintConvertRequest,
@@ -27,6 +28,8 @@ import type {
   LauncherProfileResult,
   MicrosoftConnectRequest,
   MinecraftProfileResult,
+  ModpackArchiveRequest,
+  ModpackArchiveResult,
   ModFileSummary,
   ModpackFolderSummary,
   RegionSummary,
@@ -205,6 +208,12 @@ ipcMain.handle("modpack:open-launcher", async (): Promise<LauncherProfileResult>
     }
   }
 });
+
+ipcMain.handle(
+  "modpack:export-archive",
+  async (_event, request: ModpackArchiveRequest): Promise<ModpackArchiveResult> =>
+    exportModpackArchive(request)
+);
 
 ipcMain.handle(
   "blueprint:convert",
@@ -863,6 +872,62 @@ async function walkModpack(
       stats.shaderPacks += 1;
       stats.acceptedFiles += 1;
     }
+  }
+}
+
+async function exportModpackArchive(
+  request: ModpackArchiveRequest
+): Promise<ModpackArchiveResult> {
+  try {
+    const sourcePath = path.resolve(request.sourcePath);
+    const stat = await fs.stat(sourcePath);
+    if (!stat.isDirectory()) {
+      return { ok: false, message: "A origem do modpack precisa ser uma pasta." };
+    }
+
+    const defaultName = `${safeArchiveStem(request.name || path.basename(sourcePath))}.zip`;
+    const options = {
+      title: "Exportar modpack ZIP",
+      defaultPath: defaultName,
+      filters: [{ name: "Modpack ZIP", extensions: ["zip"] }]
+    };
+    const saveResult = mainWindow
+      ? await dialog.showSaveDialog(mainWindow, options)
+      : await dialog.showSaveDialog(options);
+
+    if (saveResult.canceled || !saveResult.filePath) {
+      return { ok: false, message: "Exportacao cancelada." };
+    }
+
+    const manifest = {
+      format: "every-helper-modpack",
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      id: request.id,
+      name: request.name,
+      minecraftVersion: request.minecraftVersion,
+      loader: request.loader,
+      description: request.description ?? "",
+      sourceFolder: path.basename(sourcePath)
+    };
+
+    await writeModpackZip(sourcePath, saveResult.filePath, manifest);
+    const archiveStat = await fs.stat(saveResult.filePath);
+
+    return {
+      ok: true,
+      message: "Modpack exportado como ZIP.",
+      archivePath: saveResult.filePath,
+      sizeMb: Number((archiveStat.size / (1024 * 1024)).toFixed(2))
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel exportar o modpack."
+    };
   }
 }
 

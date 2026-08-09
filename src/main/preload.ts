@@ -6,6 +6,7 @@ import type {
   DriveBackupRequest,
   DriveConnectRequest,
   LauncherProfileRequest,
+  ModpackArchiveRequest,
   MicrosoftConnectRequest
 } from "../shared/contracts.js";
 
@@ -20,6 +21,8 @@ const api: BridgeApi = {
   installLauncherProfile: (request: LauncherProfileRequest) =>
     ipcRenderer.invoke("modpack:install-launcher-profile", request),
   openMinecraftLauncher: () => ipcRenderer.invoke("modpack:open-launcher"),
+  exportModpackArchive: (request: ModpackArchiveRequest) =>
+    ipcRenderer.invoke("modpack:export-archive", request),
   convertBlueprint: (request: BlueprintConvertRequest) =>
     ipcRenderer.invoke("blueprint:convert", request),
   exportBlueprintNbt: (request: BlueprintExportRequest) =>
