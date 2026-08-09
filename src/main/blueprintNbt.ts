@@ -6,7 +6,10 @@ import type {
 
 type PrismarineNbt = {
   comp: (value: object, name?: string) => unknown;
+  byteArray: (value: Buffer | number[]) => unknown;
   int: (value: number | number[]) => unknown;
+  intArray: (value: number[]) => unknown;
+  short: (value: number) => unknown;
   string: (value: string) => unknown;
   list: (value: unknown) => unknown;
   writeUncompressed: (value: unknown) => Buffer;
@@ -18,22 +21,8 @@ export async function exportBlueprintToNbt(
   request: BlueprintExportRequest
 ): Promise<BlueprintExportResult> {
   try {
-    const nbtModule = (await import("prismarine-nbt")) as unknown as {
-      default?: PrismarineNbt;
-    } & Partial<PrismarineNbt>;
-    const nbt = (nbtModule.default ?? nbtModule) as PrismarineNbt;
-    const validBlocks = request.blocks.filter(
-      (block) =>
-        Number.isInteger(block.x) &&
-        Number.isInteger(block.y) &&
-        Number.isInteger(block.z) &&
-        block.x >= 0 &&
-        block.y >= 0 &&
-        block.z >= 0 &&
-        block.x < request.size.x &&
-        block.y < request.size.y &&
-        block.z < request.size.z
-    );
+    const nbt = await loadPrismarineNbt();
+    const validBlocks = validBlueprintBlocks(request);
     const palette = Array.from(new Set(validBlocks.map((block) => block.type)));
     const stateIndex = new Map(palette.map((type, index) => [type, index]));
     const tag = nbt.comp(
@@ -77,6 +66,106 @@ export async function exportBlueprintToNbt(
           : "Nao foi possivel exportar o blueprint como NBT."
     };
   }
+}
+
+export async function exportBlueprintToSchem(
+  request: BlueprintExportRequest
+): Promise<BlueprintExportResult> {
+  try {
+    const nbt = await loadPrismarineNbt();
+    const validBlocks = validBlueprintBlocks(request);
+    const paletteNames = [
+      "minecraft:air",
+      ...Array.from(
+        new Set(validBlocks.map((block) => minecraftBlockNameFromType(block.type)))
+      )
+    ];
+    const paletteIndex = new Map(paletteNames.map((name, index) => [name, index]));
+    const volume = request.size.x * request.size.y * request.size.z;
+    const blockStates = new Array<number>(volume).fill(0);
+
+    validBlocks.forEach((block) => {
+      const index = (block.y * request.size.z + block.z) * request.size.x + block.x;
+      blockStates[index] =
+        paletteIndex.get(minecraftBlockNameFromType(block.type)) ?? 0;
+    });
+
+    const tag = nbt.comp(
+      {
+        Version: nbt.int(2),
+        DataVersion: nbt.int(STRUCTURE_DATA_VERSION),
+        Width: nbt.short(request.size.x),
+        Height: nbt.short(request.size.y),
+        Length: nbt.short(request.size.z),
+        Offset: nbt.intArray([0, 0, 0]),
+        PaletteMax: nbt.int(paletteNames.length),
+        Palette: nbt.comp(
+          Object.fromEntries(paletteNames.map((name, index) => [name, nbt.int(index)]))
+        ),
+        BlockData: nbt.byteArray(Buffer.from(encodeVarints(blockStates))),
+        BlockEntities: nbt.list(nbt.comp([])),
+        Entities: nbt.list(nbt.comp([])),
+        Metadata: nbt.comp({
+          Name: nbt.string(request.name || "Every Helper Blueprint")
+        })
+      },
+      "Schematic"
+    );
+
+    const gzipped = zlib.gzipSync(nbt.writeUncompressed(tag));
+    return {
+      ok: true,
+      message: "Blueprint exportado como Sponge/WorldEdit SCHEM.",
+      fileName: `${safeFileStem(request.name)}.schem`,
+      bytes: Array.from(gzipped),
+      blockCount: validBlocks.length,
+      paletteCount: paletteNames.length
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel exportar o blueprint como SCHEM."
+    };
+  }
+}
+
+async function loadPrismarineNbt() {
+  const nbtModule = (await import("prismarine-nbt")) as unknown as {
+    default?: PrismarineNbt;
+  } & Partial<PrismarineNbt>;
+  return (nbtModule.default ?? nbtModule) as PrismarineNbt;
+}
+
+function validBlueprintBlocks(request: BlueprintExportRequest) {
+  return request.blocks.filter(
+    (block) =>
+      Number.isInteger(block.x) &&
+      Number.isInteger(block.y) &&
+      Number.isInteger(block.z) &&
+      block.x >= 0 &&
+      block.y >= 0 &&
+      block.z >= 0 &&
+      block.x < request.size.x &&
+      block.y < request.size.y &&
+      block.z < request.size.z
+  );
+}
+
+function encodeVarints(values: number[]) {
+  const bytes: number[] = [];
+  values.forEach((initialValue) => {
+    let value = initialValue >>> 0;
+    do {
+      let byte = value & 0x7f;
+      value >>>= 7;
+      if (value !== 0) byte |= 0x80;
+      bytes.push(byte);
+    } while (value !== 0);
+  });
+  return bytes;
 }
 
 function safeFileStem(value: string) {

@@ -1410,6 +1410,23 @@ function BlueprintEditor({ language }: { language: Language }) {
     downloadBinaryFile(result.fileName, result.bytes, "application/x-nbt");
   }
 
+  async function exportBlueprintSchem() {
+    if (!window.everyHelper) {
+      alert("Exportacao SCHEM funciona dentro do app Electron.");
+      return;
+    }
+    const result = await window.everyHelper.exportBlueprintSchem({
+      name: blueprint.name,
+      size: blueprint.size,
+      blocks: blueprint.blocks
+    });
+    if (!result.ok || !result.fileName || !result.bytes) {
+      alert(result.message);
+      return;
+    }
+    downloadBinaryFile(result.fileName, result.bytes, "application/octet-stream");
+  }
+
   function importBlueprint(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -1522,6 +1539,9 @@ function BlueprintEditor({ language }: { language: Language }) {
         </button>
         <button onClick={exportBlueprintNbt}>
           <Download size={16} /> Exportar NBT
+        </button>
+        <button onClick={exportBlueprintSchem}>
+          <Download size={16} /> Exportar SCHEM
         </button>
       </div>
 

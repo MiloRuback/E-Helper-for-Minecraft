@@ -22,6 +22,7 @@ Use esta lista antes de apresentar ou publicar uma release.
 - [x] Importador de mundos amostra chunks `.mca` para heightmaps e biomas quando esses dados existem no save.
 - [x] Importacao real de `.litematic`, `.schem` e `.nbt` Java Structure via conversor.
 - [x] Exportacao de blueprint em Java Structure `.nbt` validada por round-trip NBT.
+- [x] Exportacao de blueprint em Sponge/WorldEdit `.schem` validada por round-trip NBT.
 - [x] Cubiomes WASM validado no preview com status ativo, hover e canvas nao vazio.
 - [x] QA visual Playwright desktop/mobile sem overflow em 16 combinacoes de tela/pagina.
 - [x] QA dirigida do World Importer com dados simulados de bioma/heightmap no mobile.

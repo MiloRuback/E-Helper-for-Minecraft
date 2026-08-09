@@ -182,6 +182,9 @@ export interface BridgeApi {
   exportBlueprintNbt: (
     request: BlueprintExportRequest
   ) => Promise<BlueprintExportResult>;
+  exportBlueprintSchem: (
+    request: BlueprintExportRequest
+  ) => Promise<BlueprintExportResult>;
   connectGoogleDrive: (request: DriveConnectRequest) => Promise<DriveBackupResult>;
   uploadDriveBackup: (request: DriveBackupRequest) => Promise<DriveBackupResult>;
   restoreDriveBackup: (request: DriveConnectRequest) => Promise<DriveBackupResult>;

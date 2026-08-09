@@ -9,7 +9,7 @@ Aplicativo desktop para Windows feito com Electron, React, TypeScript e Vite. Es
 - Janela desktop sem borda, dark mode, layout responsivo e tamanho minimo 800x500.
 - Onboarding inicial com conta local, idioma PT-BR/EN-US e preferencias.
 - Editor de skins 64x64 com pincel, borracha, balde, conta-gotas, camadas base/overlay, simetria, undo/redo, templates Steve/Alex, importacao/exportacao PNG e preview 3D via `skinview3d`.
-- Editor de blueprints com grade por camada Y, paleta de blocos, preview 3D via Three.js, exportacao/importacao `.every-blueprint.json`, exportacao Java Structure `.nbt` e importacao de `.litematic`, `.schem` e Java Structure `.nbt`.
+- Editor de blueprints com grade por camada Y, paleta de blocos, preview 3D via Three.js, exportacao/importacao `.every-blueprint.json`, exportacao Java Structure `.nbt`, exportacao Sponge/WorldEdit `.schem` e importacao de `.litematic`, `.schem` e Java Structure `.nbt`.
 - Seed Map offline com Cubiomes WASM, seed, versao, pan, zoom, coordenadas, biomas reais e marcadores de estrutura.
 - Importador de mundos Java por pasta, leitura de `level.dat`, contagem de chunks em regioes `.mca`, amostragem de heightmaps/biomas e visualizacao por Overworld/Nether/End.
 - Gerenciador de modpacks por pasta, listagem de `.jar`, configs, resourcepacks, shaderpacks e criacao de perfil isolado no Minecraft Launcher com backup do `launcher_profiles.json`.
@@ -37,7 +37,7 @@ Veja o passo a passo em `docs/INTEGRATIONS_SETUP.md`.
 
 ## Limites técnicos ainda explícitos
 
-- A importacao de blueprint cobre `.litematic`, `.schem` e Java Structure `.nbt` via `@taku128/java-schematic`; a exportacao cobre `.every-blueprint.json` e Java Structure `.nbt`. O formato legado `.schematic` classico e rejeitado pelo conversor usado.
+- A importacao de blueprint cobre `.litematic`, `.schem` e Java Structure `.nbt` via `@taku128/java-schematic`; a exportacao cobre `.every-blueprint.json`, Java Structure `.nbt` e Sponge/WorldEdit `.schem`. O formato legado `.schematic` classico e rejeitado pelo conversor usado.
 
 ## Como rodar no PC
 
@@ -76,8 +76,8 @@ VITE_MICROSOFT_CLIENT_ID=
 Crie uma tag para disparar o workflow:
 
 ```bash
-git tag v0.1.5
-git push origin v0.1.5
+git tag v0.1.6
+git push origin v0.1.6
 ```
 
 O workflow `.github/workflows/release.yml` compila no Windows e publica o `.exe` como asset da release. Se o repositorio continuar privado, o link de download so abre para usuarios autenticados com acesso ao repo.

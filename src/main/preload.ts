@@ -24,6 +24,8 @@ const api: BridgeApi = {
     ipcRenderer.invoke("blueprint:convert", request),
   exportBlueprintNbt: (request: BlueprintExportRequest) =>
     ipcRenderer.invoke("blueprint:export-nbt", request),
+  exportBlueprintSchem: (request: BlueprintExportRequest) =>
+    ipcRenderer.invoke("blueprint:export-schem", request),
   connectGoogleDrive: (request: DriveConnectRequest) =>
     ipcRenderer.invoke("drive:connect", request),
   uploadDriveBackup: (request: DriveBackupRequest) =>
