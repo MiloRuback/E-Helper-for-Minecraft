@@ -1,0 +1,155 @@
+{
+  "app": {
+    "name": "Every Helper",
+    "fullName": "Every Helper for Minecraft",
+    "version": "v1.0.0"
+  },
+  "titlebar": {
+    "title": "Every Helper for Minecraft"
+  },
+  "sidebar": {
+    "home": "Início",
+    "skinEditor": "Editor de Skins",
+    "blueprints": "Construções 3D",
+    "seedMap": "Seed Map",
+    "worldImporter": "Importar Mundo",
+    "modpacks": "Modpacks",
+    "profile": "Perfil",
+    "settings": "Configurações"
+  },
+  "home": {
+    "welcome": "Bem-vindo ao Every Helper!",
+    "subtitle": "Seu assistente completo para Minecraft",
+    "description": "Todas as ferramentas que você precisa em um só lugar. Escolha uma funcionalidade abaixo para começar.",
+    "quickAccess": "Acesso Rápido",
+    "cards": {
+      "skinEditor": {
+        "title": "Editor de Skins",
+        "description": "Crie e edite skins com visualização 3D em tempo real"
+      },
+      "blueprints": {
+        "title": "Construções 3D",
+        "description": "Importe e visualize blueprints de construções"
+      },
+      "seedMap": {
+        "title": "Seed Map",
+        "description": "Explore mapas de sementes com todas as versões"
+      },
+      "worldImporter": {
+        "title": "Importar Mundo",
+        "description": "Importe seus mundos e visualize em mapa detalhado"
+      },
+      "modpacks": {
+        "title": "Modpacks",
+        "description": "Gerencie seus modpacks e inicie o jogo"
+      },
+      "profile": {
+        "title": "Perfil",
+        "description": "Veja e edite seu perfil de jogador"
+      }
+    }
+  },
+  "skinEditor": {
+    "title": "Editor de Skins",
+    "description": "Crie e edite skins do Minecraft com um editor 2D completo e visualização 3D em tempo real.",
+    "comingSoon": "Em desenvolvimento...",
+    "features": {
+      "canvas": "Canvas de edição 64×64 com zoom",
+      "preview3d": "Preview 3D em tempo real",
+      "layers": "Suporte a camadas Base e Overlay",
+      "tools": "Pincel, balde, borracha, conta-gotas",
+      "history": "Ctrl+Z / Ctrl+Y para desfazer/refazer",
+      "importExport": "Importar/Exportar PNG"
+    }
+  },
+  "blueprints": {
+    "title": "Construções 3D",
+    "description": "Importe, visualize e edite blueprints de construções do Minecraft em 3D.",
+    "comingSoon": "Em desenvolvimento...",
+    "features": {
+      "import": "Importar .litematic, .schem, .nbt",
+      "view3d": "Visualização 3D com rotação e zoom",
+      "edit": "Editar blocos individualmente",
+      "layers": "Visão em camadas (Y-axis)",
+      "export": "Exportar blueprints"
+    }
+  },
+  "seedMap": {
+    "title": "Seed Map",
+    "description": "Explore mapas de sementes do Minecraft com precisão igual ao Chunkbase.",
+    "comingSoon": "Em desenvolvimento...",
+    "features": {
+      "allVersions": "Suporte a todas as versões Java",
+      "biomes": "Identificação de biomas por cores",
+      "structures": "Localizar estruturas (villages, temples, etc.)",
+      "coordinates": "Busca por coordenadas X, Z",
+      "navigation": "Navegação com pan e zoom"
+    }
+  },
+  "worldImporter": {
+    "title": "Importar Mundo",
+    "description": "Importe arquivos de mundo do Minecraft e visualize em um mapa detalhado com relevo.",
+    "comingSoon": "Em desenvolvimento...",
+    "features": {
+      "import": "Importar pasta de mundo completa",
+      "map": "Mapa overhead por chunks",
+      "terrain": "Heightmap com sombreamento de relevo",
+      "dimensions": "Navegação Overworld/Nether/End",
+      "search": "Busca por coordenadas"
+    }
+  },
+  "modpacks": {
+    "title": "Modpacks",
+    "description": "Crie, gerencie e lance modpacks diretamente do Every Helper.",
+    "comingSoon": "Em desenvolvimento...",
+    "features": {
+      "create": "Criar modpacks com nome e versão",
+      "import": "Importar pasta de mods",
+      "play": "Botão Play para lançar o Minecraft",
+      "profiles": "Múltiplos perfis de modpacks",
+      "share": "Importar/Exportar modpacks"
+    }
+  },
+  "profile": {
+    "title": "Perfil",
+    "description": "Seu perfil de jogador com integração Minecraft.",
+    "comingSoon": "Em desenvolvimento...",
+    "loginRequired": "Faça login para acessar seu perfil",
+    "fields": {
+      "displayName": "Nome de exibição",
+      "bio": "Bio",
+      "pronouns": "Pronomes",
+      "gamertag": "Gamertag Microsoft"
+    }
+  },
+  "settings": {
+    "title": "Configurações",
+    "description": "Personalize o Every Helper do seu jeito.",
+    "language": "Idioma",
+    "theme": "Tema",
+    "cloudSync": "Sincronização em Nuvem",
+    "microsoftAccount": "Conta Microsoft",
+    "about": "Sobre",
+    "languages": {
+      "pt-BR": "Português (Brasil)",
+      "en-US": "English (US)"
+    }
+  },
+  "common": {
+    "loading": "Carregando...",
+    "error": "Erro",
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "delete": "Excluir",
+    "edit": "Editar",
+    "create": "Criar",
+    "import": "Importar",
+    "export": "Exportar",
+    "back": "Voltar",
+    "next": "Próximo",
+    "close": "Fechar",
+    "search": "Pesquisar",
+    "comingSoon": "Em breve",
+    "inDevelopment": "Em desenvolvimento"
+  }
+}
