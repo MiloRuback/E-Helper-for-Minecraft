@@ -1,6 +1,6 @@
 {
   "name": "every-helper-for-minecraft",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Desktop helper for Minecraft players with skins, blueprints, seed maps, worlds, modpacks and profile tools.",
   "author": "Milo Ruback",
   "private": true,
@@ -16,7 +16,8 @@
     "start": "npm run build && electron .",
     "dist": "npm run build && electron-builder --win nsis",
     "dist:portable": "npm run build && electron-builder --win portable",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "build:cubiomes": "powershell -ExecutionPolicy Bypass -File tools/cubiomes/build-cubiomes-wasm.ps1"
   },
   "dependencies": {
     "@taku128/java-schematic": "^0.2.3",

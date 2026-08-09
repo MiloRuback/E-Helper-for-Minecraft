@@ -8,7 +8,7 @@ Use esta lista antes de apresentar ou publicar uma release.
 - [x] Onboarding nao bloqueia uso offline.
 - [x] Editor de skins importa/exporta PNG e oferece undo/redo.
 - [x] Preview 3D de skin e blueprint usa WebGL.
-- [x] Seed Map permite pan, zoom e busca por coordenadas.
+- [x] Seed Map usa Cubiomes WASM, permite pan, zoom e busca por coordenadas.
 - [x] Importador de mundo nao altera arquivos do save.
 - [x] Gerenciador de modpack faz backup antes de alterar `launcher_profiles.json`.
 - [x] Configuracoes exportam/restauram backup local.
@@ -22,6 +22,7 @@ Use esta lista antes de apresentar ou publicar uma release.
 - [x] Importador de mundos amostra chunks `.mca` para heightmaps e biomas quando esses dados existem no save.
 - [x] Importacao real de `.litematic`, `.schem` e `.nbt` Java Structure via conversor.
 - [x] Exportacao de blueprint em Java Structure `.nbt` validada por round-trip NBT.
+- [x] Cubiomes WASM validado no preview com status ativo, hover e canvas nao vazio.
 - [x] QA visual Playwright desktop/mobile sem overflow em 16 combinacoes de tela/pagina.
 - [x] QA dirigida do World Importer com dados simulados de bioma/heightmap no mobile.
 - [x] Smoke test do executavel empacotado.
@@ -30,5 +31,4 @@ Use esta lista antes de apresentar ou publicar uma release.
 - [ ] Testar Drive/Microsoft com Client IDs reais.
 - [ ] Testar com mundo Minecraft real grande.
 - [ ] Testar com pasta real de modpack Forge/Fabric.
-- [ ] Substituir Seed Map demonstrativo por Cubiomes WASM para precisao exata.
 - [ ] Adicionar suporte legado `.schematic` se isso for indispensavel.

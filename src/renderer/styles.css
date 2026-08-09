@@ -755,11 +755,18 @@ h3 {
   position: absolute;
   left: 12px;
   bottom: 12px;
+  display: grid;
+  gap: 3px;
   padding: 8px 10px;
   border: 1px solid rgba(145, 164, 183, 0.2);
   border-radius: 8px;
   background: rgba(13, 18, 26, 0.86);
   color: #e8edf2;
+}
+
+.map-hud span {
+  color: #91a4b7;
+  font-size: 0.78rem;
 }
 
 .legend {

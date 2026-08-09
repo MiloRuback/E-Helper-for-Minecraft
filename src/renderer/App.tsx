@@ -50,6 +50,12 @@ import {
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import * as skinview3d from "skinview3d";
+import {
+  loadCubiomesEngine,
+  type CubiomesBiome,
+  type CubiomesEngine,
+  type CubiomesStructure
+} from "./cubiomesEngine";
 import type {
   CloudBackupPayload,
   DimensionSummary,
@@ -1689,12 +1695,31 @@ function SeedMapPage({ language }: { language: Language }) {
   const [zoom, setZoom] = useState(1.5);
   const [offset, setOffset] = useState({ x: 0, z: 0 });
   const [target, setTarget] = useState({ x: 0, z: 0 });
+  const [cubiomes, setCubiomes] = useState<CubiomesEngine | null>(null);
+  const [seedEngineStatus, setSeedEngineStatus] = useState("Carregando Cubiomes WASM...");
   const [hover, setHover] = useState<{ x: number; z: number; biome: string } | null>(
     null
   );
   const dragRef = useRef<{ x: number; y: number; offsetX: number; offsetZ: number } | null>(
     null
   );
+
+  useEffect(() => {
+    let disposed = false;
+    loadCubiomesEngine()
+      .then((engine) => {
+        if (disposed) return;
+        setCubiomes(engine);
+        setSeedEngineStatus("Cubiomes WASM ativo");
+      })
+      .catch(() => {
+        if (disposed) return;
+        setSeedEngineStatus("Fallback deterministico ativo");
+      });
+    return () => {
+      disposed = true;
+    };
+  }, []);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -1714,21 +1739,29 @@ function SeedMapPage({ language }: { language: Language }) {
     const endX = Math.ceil((rect.width / 2 - offset.x) / tile) + 2;
     const startZ = Math.floor((-rect.height / 2 - offset.z) / tile) - 2;
     const endZ = Math.ceil((rect.height / 2 - offset.z) / tile) + 2;
+    cubiomes?.configure(seed, version);
 
     for (let z = startZ; z <= endZ; z += 1) {
       for (let x = startX; x <= endX; x += 1) {
-        const biome = biomeAt(seed, version, x, z);
+        const biome = cubiomes
+          ? cubiomes.biomeAt(x * 16, z * 16)
+          : biomeAt(seed, version, x, z);
         ctx.fillStyle = biome.color;
         const px = rect.width / 2 + offset.x + x * tile;
         const py = rect.height / 2 + offset.z + z * tile;
         ctx.fillRect(px, py, tile + 1, tile + 1);
 
-        const structureNoise = cellNoise(seedHash(seed), x * 9, z * 9);
-        if (structureNoise > 0.985) {
+        const structureNoise = cubiomes ? 0 : cellNoise(seedHash(seed), x * 9, z * 9);
+        if (!cubiomes && structureNoise > 0.985) {
           ctx.fillStyle = "#f2c94c";
           ctx.fillRect(px + tile * 0.35, py + tile * 0.35, tile * 0.3, tile * 0.3);
         }
       }
+    }
+
+    if (cubiomes) {
+      const structures = cubiomes.structuresInChunkBounds(startX, endX, startZ, endZ);
+      drawSeedStructures(ctx, structures, rect, offset, tile);
     }
 
     ctx.strokeStyle = "rgba(232, 232, 232, 0.18)";
@@ -1752,7 +1785,7 @@ function SeedMapPage({ language }: { language: Language }) {
     ctx.fillRect(rect.width / 2 - 5, rect.height / 2 - 5, 10, 10);
     ctx.strokeStyle = "#101722";
     ctx.strokeRect(rect.width / 2 - 5, rect.height / 2 - 5, 10, 10);
-  }, [offset, seed, version, zoom]);
+  }, [cubiomes, offset, seed, version, zoom]);
 
   useEffect(() => {
     draw();
@@ -1770,7 +1803,10 @@ function SeedMapPage({ language }: { language: Language }) {
     const tile = 22 * zoom;
     const x = Math.floor((event.clientX - rect.left - rect.width / 2 - offset.x) / tile);
     const z = Math.floor((event.clientY - rect.top - rect.height / 2 - offset.z) / tile);
-    const biome = biomeAt(seed, version, x, z);
+    cubiomes?.configure(seed, version);
+    const biome = cubiomes
+      ? cubiomes.biomeAt(x * 16, z * 16)
+      : biomeAt(seed, version, x, z);
     setHover({ x: x * 16, z: z * 16, biome: biome.label });
   }
 
@@ -1781,8 +1817,8 @@ function SeedMapPage({ language }: { language: Language }) {
         title={t(language, "seed")}
         description={
           language === "pt-br"
-            ? "Mapa offline deterministico com pan, zoom, busca por coordenadas e biomas coloridos."
-            : "Deterministic offline map with pan, zoom, coordinate search and colored biomes."
+            ? "Mapa offline com Cubiomes WASM, pan, zoom, busca por coordenadas, biomas e estruturas."
+            : "Offline map with Cubiomes WASM, pan, zoom, coordinate search, biomes and structures."
         }
       />
       <div className="toolbar">
@@ -1855,6 +1891,7 @@ function SeedMapPage({ language }: { language: Language }) {
         />
         <div className="map-hud">
           {hover ? `${hover.biome} | X ${hover.x}, Z ${hover.z}` : "Passe o mouse no mapa"}
+          <span>{seedEngineStatus}</span>
         </div>
       </div>
       <div className="legend">
@@ -1867,6 +1904,37 @@ function SeedMapPage({ language }: { language: Language }) {
       </div>
     </section>
   );
+}
+
+function drawSeedStructures(
+  ctx: CanvasRenderingContext2D,
+  structures: CubiomesStructure[],
+  rect: DOMRect,
+  offset: { x: number; z: number },
+  tile: number
+) {
+  structures.forEach((structure) => {
+    const px = rect.width / 2 + offset.x + (structure.x / 16) * tile;
+    const py = rect.height / 2 + offset.z + (structure.z / 16) * tile;
+    const radius = Math.max(4, Math.min(9, tile * 0.22));
+
+    ctx.fillStyle = structure.color;
+    ctx.beginPath();
+    ctx.arc(px, py, radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = "#101722";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    if (tile > 24) {
+      ctx.fillStyle = "#101722";
+      ctx.font = "700 9px Inter, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(structure.label.slice(0, 1), px, py + 0.5);
+    }
+  });
 }
 
 function WorldImporter({ language }: { language: Language }) {
