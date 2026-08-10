@@ -60,11 +60,14 @@ import {
   estimatedMarkersInChunkBounds,
   fallbackBiomeAt,
   fallbackBiomePalettes,
+  featureById,
   isEstimatedSlimeChunk,
   isJavaSlimeChunk,
   seedDimensions,
   seedFeatureCatalog,
+  seedFeatureIconDataUrl,
   seedFeatureLabel,
+  seedMarkerKey,
   seedPlatforms,
   type SeedDimension,
   type SeedMapBiome,
@@ -1894,6 +1897,20 @@ function Stat({ label, value }: { label: string; value: string }) {
 const SEED_TILE_SIZE = 22;
 const MIN_SEED_ZOOM = 0.25;
 const MAX_SEED_ZOOM = 10;
+const MIN_MARKER_ZOOM = 0.45;
+
+type MarkerHitZone = {
+  marker: SeedMarker;
+  x: number;
+  y: number;
+  size: number;
+};
+
+type MarkerTooltipState = {
+  marker: SeedMarker;
+  x: number;
+  y: number;
+};
 
 function SeedMapPage({ language }: { language: Language }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -1907,6 +1924,9 @@ function SeedMapPage({ language }: { language: Language }) {
   const [target, setTarget] = useState({ x: 0, z: 0 });
   const [highlightedBiome, setHighlightedBiome] = useState("");
   const [mapExpanded, setMapExpanded] = useState(false);
+  const [markerTooltip, setMarkerTooltip] = useState<MarkerTooltipState | null>(null);
+  const [visitedMarkers, setVisitedMarkers] = useState<Record<string, boolean>>({});
+  const [iconCacheVersion, setIconCacheVersion] = useState(0);
   const [enabledFeatures, setEnabledFeatures] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(seedFeatureCatalog.map((feature) => [feature.id, true]))
   );
@@ -1920,6 +1940,11 @@ function SeedMapPage({ language }: { language: Language }) {
   const dragRef = useRef<{ x: number; y: number; offsetX: number; offsetZ: number } | null>(null);
   const visibleBiomeSignatureRef = useRef("");
   const drawnMarkerCountRef = useRef(-1);
+  const markerHitZonesRef = useRef<MarkerHitZone[]>([]);
+  const iconCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
+  const visitedStorageKeyRef = useRef("");
+  const pendingOffsetRef = useRef(offset);
+  const offsetFrameRef = useRef<number | null>(null);
 
   const availableFeatures = useMemo(
     () => seedFeatureCatalog.filter((feature) => feature.dimensions.includes(dimension)),
@@ -1950,6 +1975,11 @@ function SeedMapPage({ language }: { language: Language }) {
   const selectedVisibleBiome = visibleBiomes.some((biome) => biome.name === highlightedBiome)
     ? highlightedBiome
     : "";
+  const visitedStorageKey = useMemo(
+    () =>
+      `ehm:seedMapVisited:v1:${platform}:${version}:${dimension}:${seed.trim() || "0"}`,
+    [dimension, platform, seed, version]
+  );
 
   useEffect(() => {
     let disposed = false;
@@ -1988,6 +2018,71 @@ function SeedMapPage({ language }: { language: Language }) {
     };
   }, []);
 
+  useEffect(() => {
+    seedFeatureCatalog.forEach((feature) => {
+      if (iconCacheRef.current.has(feature.id)) return;
+      const image = new Image();
+      image.decoding = "async";
+      image.onload = () => setIconCacheVersion((current) => current + 1);
+      image.src = seedFeatureIconDataUrl(feature);
+      iconCacheRef.current.set(feature.id, image);
+    });
+  }, []);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(visitedStorageKey);
+      setVisitedMarkers(saved ? (JSON.parse(saved) as Record<string, boolean>) : {});
+    } catch {
+      setVisitedMarkers({});
+    }
+    visitedStorageKeyRef.current = visitedStorageKey;
+  }, [visitedStorageKey]);
+
+  useEffect(() => {
+    if (visitedStorageKeyRef.current !== visitedStorageKey) return;
+    localStorage.setItem(visitedStorageKey, JSON.stringify(visitedMarkers));
+  }, [visitedMarkers, visitedStorageKey]);
+
+  useEffect(() => {
+    pendingOffsetRef.current = offset;
+  }, [offset]);
+
+  useEffect(
+    () => () => {
+      if (offsetFrameRef.current !== null) {
+        cancelAnimationFrame(offsetFrameRef.current);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const rect = canvas.getBoundingClientRect();
+      const pointerX = event.clientX - rect.left - rect.width / 2;
+      const pointerZ = event.clientY - rect.top - rect.height / 2;
+      const multiplier = event.deltaY < 0 ? 1.15 : 1 / 1.15;
+      setZoom((current) => {
+        const next = clampSeedZoom(current * multiplier);
+        const ratio = next / current;
+        setOffset((currentOffset) => ({
+          x: pointerX - (pointerX - currentOffset.x) * ratio,
+          z: pointerZ - (pointerZ - currentOffset.z) * ratio
+        }));
+        return next;
+      });
+    };
+    canvas.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      canvas.removeEventListener("wheel", handleWheel);
+    };
+  }, []);
+
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -2012,8 +2107,9 @@ function SeedMapPage({ language }: { language: Language }) {
       cubiomes.configure(seed, version, dimension);
     }
 
-    for (let z = startZ; z <= endZ; z += 1) {
-      for (let x = startX; x <= endX; x += 1) {
+    const biomeStep = tile < 8 ? Math.ceil(8 / tile) : 1;
+    for (let z = startZ; z <= endZ; z += biomeStep) {
+      for (let x = startX; x <= endX; x += biomeStep) {
         const biome = biomeForSeedCell({
           cubiomes: javaEngineActive ? cubiomes : null,
           seed,
@@ -2026,20 +2122,22 @@ function SeedMapPage({ language }: { language: Language }) {
         visibleBiomeMap.set(biome.name, biome);
         const px = rect.width / 2 + offset.x + x * tile;
         const py = rect.height / 2 + offset.z + z * tile;
+        const fillSize = tile * biomeStep + 1;
 
         if (enabledFeatureIds.has("biomes")) {
           ctx.fillStyle = biome.color;
-          ctx.fillRect(px, py, tile + 1, tile + 1);
+          ctx.fillRect(px, py, fillSize, fillSize);
           if (selectedVisibleBiome && selectedVisibleBiome !== biome.name) {
             ctx.fillStyle = "rgba(7, 11, 17, 0.58)";
-            ctx.fillRect(px, py, tile + 1, tile + 1);
+            ctx.fillRect(px, py, fillSize, fillSize);
           }
         } else {
           ctx.fillStyle = (x + z) % 2 === 0 ? "#121a25" : "#101720";
-          ctx.fillRect(px, py, tile + 1, tile + 1);
+          ctx.fillRect(px, py, fillSize, fillSize);
         }
 
         if (
+          tile >= 10 &&
           enabledFeatureIds.has("slime_chunk") &&
           dimension === "overworld" &&
           (platform === "java"
@@ -2062,22 +2160,25 @@ function SeedMapPage({ language }: { language: Language }) {
       setVisibleBiomes(sortedBiomes);
     }
 
+    const showMarkers = zoom >= MIN_MARKER_ZOOM;
     const exactMarkers =
-      javaEngineActive && cubiomes
+      showMarkers && javaEngineActive && cubiomes
         ? cubiomes.structuresInChunkBounds(startX, endX, startZ, endZ, enabledFeatureIds)
         : [];
-    const estimatedMarkers = estimatedMarkersInChunkBounds(
-      seed,
-      version,
-      platform,
-      dimension,
-      startX,
-      endX,
-      startZ,
-      endZ,
-      enabledFeatureIds,
-      javaEngineActive ? exactJavaFeatureIds : new Set<string>()
-    );
+    const estimatedMarkers = showMarkers
+      ? estimatedMarkersInChunkBounds(
+          seed,
+          version,
+          platform,
+          dimension,
+          startX,
+          endX,
+          startZ,
+          endZ,
+          enabledFeatureIds,
+          javaEngineActive ? exactJavaFeatureIds : new Set<string>()
+        )
+      : [];
     const markers = [...exactMarkers, ...estimatedMarkers];
     if (enabledFeatureIds.has("spawn") && dimension === "overworld") {
       markers.push({
@@ -2090,7 +2191,27 @@ function SeedMapPage({ language }: { language: Language }) {
         estimated: false
       });
     }
-    drawSeedMarkers(ctx, markers, rect, offset, tile);
+    markerHitZonesRef.current = drawSeedMarkers(
+      ctx,
+      markers,
+      rect,
+      offset,
+      tile,
+      iconCacheRef.current,
+      visitedMarkers
+    );
+    canvas.dataset.markerCount = String(markerHitZonesRef.current.length);
+    const firstVisibleHitZone = markerHitZonesRef.current.find(
+      (zone) =>
+        zone.x >= 0 &&
+        zone.y >= 0 &&
+        zone.x + zone.size <= rect.width &&
+        zone.y + zone.size <= rect.height
+    );
+    canvas.dataset.firstMarker =
+      firstVisibleHitZone
+        ? `${firstVisibleHitZone.x},${firstVisibleHitZone.y},${firstVisibleHitZone.size}`
+        : "";
     if (markers.length !== drawnMarkerCountRef.current) {
       drawnMarkerCountRef.current = markers.length;
       setDrawnMarkerCount(markers.length);
@@ -2129,12 +2250,14 @@ function SeedMapPage({ language }: { language: Language }) {
     dimension,
     enabledFeatureIds,
     exactJavaFeatureIds,
+    iconCacheVersion,
     javaEngineActive,
     offset,
     platform,
     seed,
     selectedVisibleBiome,
     version,
+    visitedMarkers,
     zoom
   ]);
 
@@ -2149,11 +2272,32 @@ function SeedMapPage({ language }: { language: Language }) {
     });
   }
 
+  function queueOffset(nextOffset: { x: number; z: number }) {
+    pendingOffsetRef.current = nextOffset;
+    if (offsetFrameRef.current !== null) return;
+    offsetFrameRef.current = requestAnimationFrame(() => {
+      offsetFrameRef.current = null;
+      setOffset(pendingOffsetRef.current);
+    });
+  }
+
   function mapCoordinates(event: ReactMouseEvent<HTMLCanvasElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
     const tile = SEED_TILE_SIZE * zoom;
-    const chunkX = Math.floor((event.clientX - rect.left - rect.width / 2 - offset.x) / tile);
-    const chunkZ = Math.floor((event.clientY - rect.top - rect.height / 2 - offset.z) / tile);
+    const localX = event.clientX - rect.left;
+    const localY = event.clientY - rect.top;
+    const chunkX = Math.floor((localX - rect.width / 2 - offset.x) / tile);
+    const chunkZ = Math.floor((localY - rect.height / 2 - offset.z) / tile);
+    const markerHit = findMarkerHit(markerHitZonesRef.current, localX, localY);
+    if (markerHit) {
+      setMarkerTooltip({
+        marker: markerHit.marker,
+        x: Math.min(Math.max(localX + 14, 8), Math.max(8, rect.width - 250)),
+        y: Math.min(Math.max(localY + 14, 8), Math.max(8, rect.height - 142))
+      });
+    } else {
+      setMarkerTooltip(null);
+    }
     if (javaEngineActive && cubiomes) {
       cubiomes.configure(seed, version, dimension);
     }
@@ -2167,6 +2311,19 @@ function SeedMapPage({ language }: { language: Language }) {
       chunkZ
     });
     setHover({ x: chunkX * 16, z: chunkZ * 16, biome: biome.label });
+  }
+
+  function toggleVisitedMarker(marker: SeedMarker) {
+    const key = seedMarkerKey(marker);
+    setVisitedMarkers((current) => {
+      const next = { ...current };
+      if (next[key]) {
+        delete next[key];
+      } else {
+        next[key] = true;
+      }
+      return next;
+    });
   }
 
   function setFeature(featureId: string, enabled: boolean) {
@@ -2336,11 +2493,8 @@ function SeedMapPage({ language }: { language: Language }) {
                   onClick={() => setFeature(feature.id, !enabledFeatures[feature.id])}
                   title={exact ? `${label} - Cubiomes` : `${label} - ${copy(language, "estimado", "estimated")}`}
                 >
-                  <span className="feature-icon" style={{ background: feature.color }}>
-                    {feature.glyph}
-                  </span>
+                  <img className="feature-icon" src={seedFeatureIconDataUrl(feature)} alt="" aria-hidden="true" />
                   <span>{label}</span>
-                  {exact && <i>C</i>}
                 </button>
               );
             })}
@@ -2364,7 +2518,7 @@ function SeedMapPage({ language }: { language: Language }) {
           }}
           onPointerMove={(event) => {
             if (!dragRef.current) return;
-            setOffset({
+            queueOffset({
               x: dragRef.current.offsetX + event.clientX - dragRef.current.x,
               z: dragRef.current.offsetZ + event.clientY - dragRef.current.y
             });
@@ -2374,22 +2528,6 @@ function SeedMapPage({ language }: { language: Language }) {
           }}
           onPointerCancel={() => {
             dragRef.current = null;
-          }}
-          onWheel={(event) => {
-            event.preventDefault();
-            const rect = event.currentTarget.getBoundingClientRect();
-            const pointerX = event.clientX - rect.left - rect.width / 2;
-            const pointerZ = event.clientY - rect.top - rect.height / 2;
-            const multiplier = event.deltaY < 0 ? 1.15 : 1 / 1.15;
-            setZoom((current) => {
-              const next = clampSeedZoom(current * multiplier);
-              const ratio = next / current;
-              setOffset((currentOffset) => ({
-                x: pointerX - (pointerX - currentOffset.x) * ratio,
-                z: pointerZ - (pointerZ - currentOffset.z) * ratio
-              }));
-              return next;
-            });
           }}
           onKeyDown={(event) => {
             const panAmount = 64;
@@ -2411,6 +2549,14 @@ function SeedMapPage({ language }: { language: Language }) {
             : copy(language, "Passe o mouse no mapa", "Hover the map")}
           <span>{engineLabel}</span>
         </div>
+        {markerTooltip && (
+          <SeedMarkerTooltip
+            language={language}
+            tooltip={markerTooltip}
+            visited={Boolean(visitedMarkers[seedMarkerKey(markerTooltip.marker)])}
+            onVisitedChange={() => toggleVisitedMarker(markerTooltip.marker)}
+          />
+        )}
       </div>
       <div className="legend seed-legend">
         {enabledFeatureIds.has("biomes") ? (
@@ -2432,6 +2578,71 @@ function SeedMapPage({ language }: { language: Language }) {
       </div>
     </section>
   );
+}
+
+function SeedMarkerTooltip({
+  language,
+  tooltip,
+  visited,
+  onVisitedChange
+}: {
+  language: Language;
+  tooltip: MarkerTooltipState;
+  visited: boolean;
+  onVisitedChange: () => void;
+}) {
+  const feature = featureById(tooltip.marker.featureId);
+  const label = feature ? seedFeatureLabel(feature, language) : tooltip.marker.label;
+  const status =
+    tooltip.marker.featureId === "spawn"
+      ? copy(language, "Ponto manual", "Manual point")
+      : tooltip.marker.estimated
+        ? copy(language, "Estimado", "Estimated")
+        : "Cubiomes";
+
+  return (
+    <div
+      className="seed-marker-tooltip"
+      style={{ left: tooltip.x, top: tooltip.y }}
+      onPointerDown={(event) => event.stopPropagation()}
+      onMouseMove={(event) => event.stopPropagation()}
+    >
+      <div className="seed-marker-tooltip-title">
+        <img
+          src={seedFeatureIconDataUrl(feature ?? { id: tooltip.marker.featureId, color: tooltip.marker.color })}
+          alt=""
+          aria-hidden="true"
+        />
+        <div>
+          <strong>{label}</strong>
+          <span>{status}</span>
+        </div>
+      </div>
+      <div className="seed-marker-tooltip-coords">
+        <span>X {Math.round(tooltip.marker.x)}</span>
+        <span>Z {Math.round(tooltip.marker.z)}</span>
+      </div>
+      <label className="seed-visited-toggle">
+        <input type="checkbox" checked={visited} onChange={onVisitedChange} />
+        {copy(language, "Visitado", "Visited")}
+      </label>
+    </div>
+  );
+}
+
+function findMarkerHit(hitZones: MarkerHitZone[], x: number, y: number) {
+  for (let index = hitZones.length - 1; index >= 0; index -= 1) {
+    const zone = hitZones[index];
+    if (
+      x >= zone.x &&
+      x <= zone.x + zone.size &&
+      y >= zone.y &&
+      y <= zone.y + zone.size
+    ) {
+      return zone;
+    }
+  }
+  return null;
 }
 
 function biomeForSeedCell({
@@ -2485,29 +2696,41 @@ function drawSeedMarkers(
   markers: SeedMarker[],
   rect: DOMRect,
   offset: { x: number; z: number },
-  tile: number
+  tile: number,
+  iconCache: Map<string, HTMLImageElement>,
+  visitedMarkers: Record<string, boolean>
 ) {
+  const hitZones: MarkerHitZone[] = [];
   markers.forEach((marker) => {
     const px = rect.width / 2 + offset.x + (marker.x / 16) * tile;
     const py = rect.height / 2 + offset.z + (marker.z / 16) * tile;
-    const size = Math.max(12, Math.min(26, tile * 0.72));
+    const size = Math.max(14, Math.min(30, tile * 0.78));
     const x = px - size / 2;
     const y = py - size / 2;
+    const visited = Boolean(visitedMarkers[seedMarkerKey(marker)]);
+    const icon = iconCache.get(marker.featureId);
+    hitZones.push({ marker, x, y, size });
 
     ctx.save();
-    ctx.fillStyle = marker.color;
-    ctx.strokeStyle = marker.estimated ? "rgba(255, 255, 255, 0.65)" : "#07111c";
-    ctx.lineWidth = marker.estimated ? 1 : 2;
-    ctx.beginPath();
-    ctx.roundRect(x, y, size, size, Math.max(3, size * 0.16));
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = readableTextColor(marker.color);
-    ctx.font = `800 ${Math.max(7, Math.min(11, size * 0.42))}px Inter, sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(marker.glyph.slice(0, 2), px, py + 0.5);
+    ctx.globalAlpha = visited ? 0.42 : 1;
+    if (icon?.complete && icon.naturalWidth > 0) {
+      ctx.drawImage(icon, x, y, size, size);
+    } else {
+      ctx.fillStyle = marker.color;
+      ctx.strokeStyle = marker.estimated ? "rgba(255, 255, 255, 0.65)" : "#07111c";
+      ctx.lineWidth = marker.estimated ? 1 : 2;
+      ctx.beginPath();
+      ctx.roundRect(x, y, size, size, Math.max(3, size * 0.16));
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = readableTextColor(marker.color);
+      ctx.font = `800 ${Math.max(7, Math.min(11, size * 0.42))}px Inter, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(marker.glyph.slice(0, 2), px, py + 0.5);
+    }
     if (marker.estimated && size >= 18) {
+      ctx.globalAlpha = visited ? 0.5 : 1;
       ctx.fillStyle = "rgba(7, 17, 28, 0.88)";
       ctx.beginPath();
       ctx.arc(px + size * 0.34, py - size * 0.34, 3, 0, Math.PI * 2);
@@ -2515,6 +2738,7 @@ function drawSeedMarkers(
     }
     ctx.restore();
   });
+  return hitZones;
 }
 
 function readableTextColor(hexColor: string) {
