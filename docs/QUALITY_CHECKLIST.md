@@ -17,7 +17,7 @@ Use esta lista antes de apresentar ou publicar uma release.
 - [x] App empacotado consulta GitHub Releases via `electron-updater`.
 - [x] Supabase schema aplicado com RLS no projeto conectado.
 - [x] Supabase URL e publishable key publicas configuradas no app e em `.env.example`.
-- [x] Supabase security advisors sem findings apos migration de hardening.
+- [x] Supabase RLS/schema revisado; aviso de leaked-password protection deve ser ligado no dashboard Auth em producao.
 - [x] UI possui login/cadastro Supabase e sync de perfil/settings.
 - [x] Google Drive OAuth/backup/restore implementado no main process.
 - [x] Microsoft/Xbox/Minecraft OAuth implementado no main process.
@@ -30,6 +30,7 @@ Use esta lista antes de apresentar ou publicar uma release.
 - [x] QA visual Playwright desktop/mobile sem overflow em 16 combinacoes de tela/pagina.
 - [x] QA visual Playwright em ingles sem overflow, sem erros de console e sem textos PT-BR criticos em 16 combinacoes de tela/pagina.
 - [x] QA dirigida do World Importer com dados simulados de bioma/heightmap no mobile.
+- [x] QA do World Importer com mundo real `MasterGammes 275`, incluindo Overworld/Nether/End, chunks, biomas, relevo legado e estruturas.
 - [x] Avatar Minecraft do perfil migra URL antiga do Crafatar, carrega via `mc-heads.net` e possui fallback visual.
 - [x] Smoke test do executavel empacotado.
 - [x] Instalador validado localmente com instalacao silenciosa em pasta temporaria, abertura do app e desinstalacao.
@@ -37,6 +38,6 @@ Use esta lista antes de apresentar ou publicar uma release.
 - [ ] Testar instalador em uma maquina Windows limpa.
 - [ ] Testar Supabase Auth com uma conta real de usuario.
 - [ ] Testar Drive/Microsoft com Client IDs reais.
-- [ ] Testar com mundo Minecraft real grande.
+- [x] Testar com mundo Minecraft real grande.
 - [ ] Testar com pasta real de modpack Forge/Fabric.
 - [ ] Adicionar suporte legado `.schematic` se isso for indispensavel.

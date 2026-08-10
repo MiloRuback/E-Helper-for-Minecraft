@@ -16,6 +16,7 @@
     "src/main/main.ts",
     "src/main/modpackArchive.ts",
     "src/main/preload.ts",
+    "src/main/worldScanner.ts",
     "src/shared/contracts.ts"
   ]
 }
