@@ -1,4 +1,13 @@
 import cubiomesWasmUrl from "./wasm/cubiomes.wasm?url";
+import {
+  biomeColor,
+  biomeLabel,
+  featureById,
+  minecraftSeedBigInt,
+  seedFeatureCatalog,
+  type SeedDimension,
+  type SeedMarker
+} from "./seedMapData";
 
 type CubiomesExports = {
   memory: WebAssembly.Memory;
@@ -20,15 +29,9 @@ export interface CubiomesBiome {
   color: string;
 }
 
-export interface CubiomesStructure {
-  id: number;
-  label: string;
-  color: string;
-  x: number;
-  z: number;
-}
-
 const DIM_OVERWORLD = 0;
+const DIM_NETHER = -1;
+const DIM_END = 1;
 const MC_1_0 = 3;
 const MC_1_1 = 4;
 const MC_1_2 = 5;
@@ -56,16 +59,9 @@ const MC_1_21_1 = 26;
 const MC_1_21_3 = 27;
 const MC_1_21 = 28;
 
-const structureTypes = [
-  { id: 5, label: "Village", color: "#f2c94c" },
-  { id: 1, label: "Pyramid", color: "#d7b85f" },
-  { id: 8, label: "Monument", color: "#41b6e6" },
-  { id: 9, label: "Mansion", color: "#b88a5a" },
-  { id: 10, label: "Outpost", color: "#ef6f6c" },
-  { id: 13, label: "Ancient City", color: "#8f7fea" },
-  { id: 23, label: "Trail Ruins", color: "#c1844d" },
-  { id: 24, label: "Trial Chambers", color: "#46d9ca" }
-];
+const cubiomesStructureFeatures = seedFeatureCatalog.filter(
+  (feature) => typeof feature.cubiomesType === "number"
+);
 
 let enginePromise: Promise<CubiomesEngine> | null = null;
 
@@ -77,14 +73,15 @@ export class CubiomesEngine {
     this.exports._initialize?.();
   }
 
-  configure(seedText: string, version: string) {
-    const seed = minecraftSeed(seedText);
-    const key = `${version}:${seed.toString()}`;
+  configure(seedText: string, version: string, dimension: SeedDimension) {
+    const seed = minecraftSeedBigInt(seedText);
+    const key = `${version}:${dimension}:${seed.toString()}`;
     if (key === this.configuredKey) return;
     const mc = minecraftVersionToCubiomes(version);
+    const dim = seedDimensionToCubiomes(dimension);
     const seedHi = Number((seed >> 32n) & 0xffffffffn);
     const seedLo = Number(seed & 0xffffffffn);
-    this.exports.eh_init(mc, DIM_OVERWORLD, seedHi, seedLo);
+    this.exports.eh_init(mc, dim, seedHi, seedLo);
     this.configuredKey = key;
   }
 
@@ -103,13 +100,17 @@ export class CubiomesEngine {
     minChunkX: number,
     maxChunkX: number,
     minChunkZ: number,
-    maxChunkZ: number
-  ): CubiomesStructure[] {
-    const structures: CubiomesStructure[] = [];
+    maxChunkZ: number,
+    enabledFeatureIds: Set<string>
+  ): SeedMarker[] {
+    const structures: SeedMarker[] = [];
     const seen = new Set<string>();
 
-    structureTypes.forEach((structure) => {
-      const regionSize = this.exports.eh_structure_region_size(structure.id);
+    cubiomesStructureFeatures.forEach((structure) => {
+      if (!enabledFeatureIds.has(structure.id)) return;
+      const structureType = structure.cubiomesType;
+      if (typeof structureType !== "number") return;
+      const regionSize = this.exports.eh_structure_region_size(structureType);
       if (!regionSize) return;
 
       const minRegX = Math.floor(minChunkX / regionSize) - 1;
@@ -119,7 +120,7 @@ export class CubiomesEngine {
 
       for (let regZ = minRegZ; regZ <= maxRegZ; regZ += 1) {
         for (let regX = minRegX; regX <= maxRegX; regX += 1) {
-          if (!this.exports.eh_structure_find(structure.id, regX, regZ)) continue;
+          if (!this.exports.eh_structure_find(structureType, regX, regZ)) continue;
           const x = this.exports.eh_structure_x();
           const z = this.exports.eh_structure_z();
           const chunkX = Math.floor(x / 16);
@@ -135,7 +136,16 @@ export class CubiomesEngine {
           const key = `${structure.id}:${x}:${z}`;
           if (seen.has(key)) continue;
           seen.add(key);
-          structures.push({ ...structure, x, z });
+          const catalogFeature = featureById(structure.id) ?? structure;
+          structures.push({
+            featureId: structure.id,
+            label: catalogFeature.labelEn,
+            glyph: catalogFeature.glyph,
+            color: catalogFeature.color,
+            x,
+            z,
+            estimated: false
+          });
         }
       }
     });
@@ -211,44 +221,8 @@ function minecraftVersionToCubiomes(version: string) {
   return MC_1_21;
 }
 
-function minecraftSeed(value: string) {
-  const trimmed = value.trim();
-  if (/^-?\d+$/.test(trimmed)) {
-    return BigInt.asUintN(64, BigInt(trimmed));
-  }
-
-  let hash = 0;
-  for (let i = 0; i < value.length; i += 1) {
-    hash = Math.imul(31, hash) + value.charCodeAt(i);
-    hash |= 0;
-  }
-  return BigInt.asUintN(64, BigInt(hash));
-}
-
-function biomeLabel(name: string) {
-  return name
-    .replace(/^minecraft:/, "")
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
-function biomeColor(name: string) {
-  if (name.includes("desert") || name.includes("badlands")) return "#d4b35f";
-  if (name.includes("snow") || name.includes("frozen") || name.includes("ice")) return "#c9e4ef";
-  if (name.includes("ocean") || name.includes("river")) return "#3a6ea5";
-  if (name.includes("swamp") || name.includes("mangrove")) return "#4c7a4f";
-  if (name.includes("jungle")) return "#2f8a45";
-  if (name.includes("forest") || name.includes("taiga") || name.includes("grove")) {
-    return "#3f7d46";
-  }
-  if (name.includes("meadow") || name.includes("cherry")) return "#88b96b";
-  if (name.includes("mountain") || name.includes("peak") || name.includes("slope")) {
-    return "#8d958f";
-  }
-  if (name.includes("nether") || name.includes("basalt") || name.includes("crimson")) {
-    return "#9e3f35";
-  }
-  if (name.includes("end")) return "#b8b574";
-  return "#62a96f";
+function seedDimensionToCubiomes(dimension: SeedDimension) {
+  if (dimension === "nether") return DIM_NETHER;
+  if (dimension === "end") return DIM_END;
+  return DIM_OVERWORLD;
 }
