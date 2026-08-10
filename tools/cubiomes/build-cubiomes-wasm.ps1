@@ -36,7 +36,7 @@ if (!(Test-Path $emcc)) {
   "-I$cubiomesRoot" `
   -O3 `
   --no-entry `
-  "-sEXPORTED_FUNCTIONS=['_eh_mc_latest','_eh_init','_eh_biome_at','_eh_biome_name','_eh_structure_region_size','_eh_structure_find','_eh_structure_x','_eh_structure_z']" `
+  "-sEXPORTED_FUNCTIONS=['_eh_mc_latest','_eh_init','_eh_biome_at','_eh_biome_name','_eh_structure_region_size','_eh_structure_find','_eh_structure_x','_eh_structure_z','_eh_strongholds_find','_eh_stronghold_x','_eh_stronghold_z']" `
   -o $outFile
 
 Copy-Item -LiteralPath (Join-Path $cubiomesRoot "LICENSE") -Destination (Join-Path $outDir "CUBIOMES_LICENSE.txt") -Force

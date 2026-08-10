@@ -69,6 +69,17 @@ async function countCanvasColor(page, rgb) {
   }, rgb);
 }
 
+async function zoomToScale(page, direction, steps) {
+  const canvasBox = await page.locator("canvas.seed-canvas").boundingBox();
+  assert(Boolean(canvasBox), "Canvas bounding box was unavailable for zoom.");
+  await page.mouse.move(canvasBox.x + canvasBox.width / 2, canvasBox.y + canvasBox.height / 2);
+  for (let index = 0; index < steps; index += 1) {
+    await page.mouse.wheel(0, direction === "out" ? 900 : -900);
+    await page.waitForTimeout(12);
+  }
+  await page.waitForTimeout(500);
+}
+
 async function markerAverage(page, box) {
   return page.locator("canvas.seed-canvas").evaluate((canvas, markerBox) => {
     const context = canvas.getContext("2d");
@@ -138,6 +149,28 @@ try {
   const legendCount = await page.locator(".seed-legend button").count();
   assert(legendCount >= 4, `Expected visible biome legend entries, found ${legendCount}.`);
 
+  assert(await page.locator("label:has-text('Camada') select").isVisible(), "Overworld biome layer selector is missing.");
+  const baseLayer = await page.locator("canvas.seed-canvas").evaluate((canvas) => canvas.dataset.biomeLayer);
+  assert(baseLayer === "surface", `Expected default biome layer surface, got ${baseLayer}.`);
+  const firstSurfaceLegend = await page.locator(".seed-legend button").first().innerText();
+  await page.locator("label:has-text('Camada') select").selectOption("subsurface");
+  await page.waitForTimeout(700);
+  const subsurfaceLayer = await page.locator("canvas.seed-canvas").evaluate((canvas) => canvas.dataset.biomeLayer);
+  assert(subsurfaceLayer === "subsurface", `Expected subsurface biome layer, got ${subsurfaceLayer}.`);
+  const firstSubsurfaceLegend = await page.locator(".seed-legend button").first().innerText();
+  await page.locator("label:has-text('Camada') select").selectOption("abyssal");
+  await page.waitForTimeout(700);
+  const abyssalLayer = await page.locator("canvas.seed-canvas").evaluate((canvas) => canvas.dataset.biomeLayer);
+  assert(abyssalLayer === "abyssal", `Expected abyssal biome layer, got ${abyssalLayer}.`);
+  const abyssalStats = await canvasStats(page);
+  assert(abyssalStats.colorCount >= 4, "Abyssal layer did not render enough biome colors.");
+  await page.locator("label:has-text('Camada') select").selectOption("surface");
+  await page.waitForTimeout(700);
+  assert(
+    firstSurfaceLegend !== firstSubsurfaceLegend || abyssalStats.colorCount !== overworldStats.colorCount,
+    "Biome layers did not produce a detectable visual/legend change."
+  );
+
   const firstSwatch = await page.locator(".seed-legend button i").first().evaluate((node) =>
     getComputedStyle(node).backgroundColor
   );
@@ -145,6 +178,21 @@ try {
   assert(Boolean(rgb), `Could not parse first legend swatch color: ${firstSwatch}`);
   const colorHits = await countCanvasColor(page, rgb);
   assert(colorHits > 0, "First legend swatch color does not appear in the canvas.");
+
+  await zoomToScale(page, "out", 48);
+  const minScaleData = await page.locator("canvas.seed-canvas").evaluate((canvas) => ({
+    pixelsPerBlock: Number(canvas.dataset.pixelsPerBlock),
+    zoomRange: canvas.dataset.zoomRange,
+    strongholdCount: Number(canvas.dataset.strongholdCount)
+  }));
+  assert(minScaleData.pixelsPerBlock <= 0.008, `Minimum zoom did not reach 1px=128m scale (${minScaleData.pixelsPerBlock}).`);
+  assert(minScaleData.zoomRange === "0.0078125,8", `Unexpected zoom range metadata: ${minScaleData.zoomRange}.`);
+  assert(minScaleData.strongholdCount > 0, "Strongholds should remain visible at very low zoom.");
+  await zoomToScale(page, "in", 60);
+  const maxScale = await page.locator("canvas.seed-canvas").evaluate((canvas) => Number(canvas.dataset.pixelsPerBlock));
+  assert(maxScale >= 7.95, `Maximum zoom did not reach 8px=1m scale (${maxScale}).`);
+  await page.getByTitle(/Reset|Centralizar/i).click();
+  await page.waitForTimeout(700);
 
   await page.waitForFunction(() => {
     const canvas = document.querySelector("canvas.seed-canvas");
@@ -204,6 +252,7 @@ try {
   await page.getByRole("button", { name: "Nether" }).click();
   await page.waitForTimeout(900);
   assert(await page.getByRole("button", { name: /Fortaleza|Fortress/i }).isVisible(), "Nether features are missing.");
+  assert(!(await page.locator("label:has-text('Camada') select").isVisible()), "Biome layer selector should be hidden outside Overworld.");
   const netherStats = await canvasStats(page);
   assert(netherStats.colorCount >= 5, "Nether map did not render enough biome colors.");
 

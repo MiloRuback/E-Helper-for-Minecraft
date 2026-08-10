@@ -724,6 +724,11 @@ h3 {
   background: #152234;
 }
 
+.feature-toggle.zoom-muted {
+  border-style: dashed;
+  opacity: 0.62;
+}
+
 .feature-panel {
   display: grid;
   gap: 8px;
@@ -1314,6 +1319,24 @@ h3 {
 
   .feature-grid {
     grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
+  }
+
+  .seed-map-controls {
+    order: 1;
+  }
+
+  .map-shell {
+    order: 2;
+  }
+
+  .seed-legend {
+    order: 3;
+  }
+
+  .feature-panel {
+    order: 4;
+    max-height: 360px;
+    overflow: auto;
   }
 
   .map-shell,

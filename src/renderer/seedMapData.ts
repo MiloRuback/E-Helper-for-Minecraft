@@ -1,5 +1,6 @@
 export type SeedPlatform = "java" | "bedrock";
 export type SeedDimension = "overworld" | "nether" | "end";
+export type SeedBiomeLayer = "surface" | "subsurface" | "abyssal";
 
 export interface SeedMapBiome {
   id: string;
@@ -18,6 +19,7 @@ export interface SeedFeature {
   cubiomesType?: number;
   estimatedRegionSize?: number;
   estimatedChance?: number;
+  minVisiblePixelsPerBlock?: number;
 }
 
 export interface SeedMarker {
@@ -32,6 +34,18 @@ export interface SeedMarker {
 
 const iconDataUrlCache = new Map<string, string>();
 
+export const SEED_MIN_PIXELS_PER_BLOCK = 1 / 128;
+export const SEED_MAX_PIXELS_PER_BLOCK = 8;
+export const SEED_DEFAULT_PIXELS_PER_BLOCK = 2;
+
+const ZOOM_FAR = SEED_MIN_PIXELS_PER_BLOCK;
+const ZOOM_RARE = 1 / 96;
+const ZOOM_REGIONAL = 1 / 32;
+const ZOOM_LOCAL = 1 / 16;
+const ZOOM_DENSE = 1 / 8;
+const ZOOM_DETAIL = 1 / 4;
+const ZOOM_CHUNK = 1 / 2;
+
 export const seedPlatforms: Array<{ id: SeedPlatform; label: string }> = [
   { id: "java", label: "Java" },
   { id: "bedrock", label: "Bedrock" }
@@ -43,6 +57,12 @@ export const seedDimensions: Array<{ id: SeedDimension; labelPt: string; labelEn
   { id: "end", labelPt: "End", labelEn: "End" }
 ];
 
+export const seedBiomeLayers: Array<{ id: SeedBiomeLayer; labelPt: string; labelEn: string; y: number }> = [
+  { id: "surface", labelPt: "Superficie", labelEn: "Surface", y: 63 },
+  { id: "subsurface", labelPt: "Subsolo", labelEn: "Subsurface", y: 24 },
+  { id: "abyssal", labelPt: "Abissal", labelEn: "Abyssal", y: -48 }
+];
+
 export const seedFeatureCatalog: SeedFeature[] = [
   {
     id: "biomes",
@@ -50,7 +70,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     labelEn: "Biomes",
     glyph: "BI",
     color: "#46d9ca",
-    dimensions: ["overworld", "nether", "end"]
+    dimensions: ["overworld", "nether", "end"],
+    minVisiblePixelsPerBlock: ZOOM_FAR
   },
   {
     id: "spawn",
@@ -58,7 +79,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     labelEn: "Spawn Point",
     glyph: "SP",
     color: "#f6f1a4",
-    dimensions: ["overworld"]
+    dimensions: ["overworld"],
+    minVisiblePixelsPerBlock: ZOOM_FAR
   },
   {
     id: "slime_chunk",
@@ -66,7 +88,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     labelEn: "Slime Chunk",
     glyph: "SL",
     color: "#7fdc5c",
-    dimensions: ["overworld"]
+    dimensions: ["overworld"],
+    minVisiblePixelsPerBlock: ZOOM_CHUNK
   },
   {
     id: "village",
@@ -77,7 +100,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     dimensions: ["overworld"],
     cubiomesType: 5,
     estimatedRegionSize: 34,
-    estimatedChance: 0.82
+    estimatedChance: 0.82,
+    minVisiblePixelsPerBlock: ZOOM_REGIONAL
   },
   {
     id: "ancient_city",
@@ -88,7 +112,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     dimensions: ["overworld"],
     cubiomesType: 13,
     estimatedRegionSize: 24,
-    estimatedChance: 0.32
+    estimatedChance: 0.32,
+    minVisiblePixelsPerBlock: ZOOM_REGIONAL
   },
   {
     id: "dungeon",
@@ -98,7 +123,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     color: "#6f7884",
     dimensions: ["overworld"],
     estimatedRegionSize: 12,
-    estimatedChance: 0.2
+    estimatedChance: 0.2,
+    minVisiblePixelsPerBlock: ZOOM_DETAIL
   },
   {
     id: "stronghold",
@@ -108,7 +134,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     color: "#6ac0a5",
     dimensions: ["overworld"],
     estimatedRegionSize: 64,
-    estimatedChance: 0.18
+    estimatedChance: 0.18,
+    minVisiblePixelsPerBlock: ZOOM_FAR
   },
   {
     id: "mansion",
@@ -119,7 +146,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     dimensions: ["overworld"],
     cubiomesType: 9,
     estimatedRegionSize: 80,
-    estimatedChance: 0.35
+    estimatedChance: 0.35,
+    minVisiblePixelsPerBlock: ZOOM_REGIONAL
   },
   {
     id: "monument",
@@ -130,7 +158,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     dimensions: ["overworld"],
     cubiomesType: 8,
     estimatedRegionSize: 32,
-    estimatedChance: 0.5
+    estimatedChance: 0.5,
+    minVisiblePixelsPerBlock: ZOOM_REGIONAL
   },
   {
     id: "outpost",
@@ -141,7 +170,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     dimensions: ["overworld"],
     cubiomesType: 10,
     estimatedRegionSize: 32,
-    estimatedChance: 0.54
+    estimatedChance: 0.54,
+    minVisiblePixelsPerBlock: ZOOM_LOCAL
   },
   {
     id: "mineshaft",
@@ -152,7 +182,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     dimensions: ["overworld"],
     cubiomesType: 15,
     estimatedRegionSize: 16,
-    estimatedChance: 0.34
+    estimatedChance: 0.34,
+    minVisiblePixelsPerBlock: ZOOM_DENSE
   },
   {
     id: "ruined_portal",
@@ -163,7 +194,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     dimensions: ["overworld"],
     cubiomesType: 11,
     estimatedRegionSize: 40,
-    estimatedChance: 0.62
+    estimatedChance: 0.62,
+    minVisiblePixelsPerBlock: ZOOM_LOCAL
   },
   {
     id: "jungle_temple",
@@ -174,7 +206,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     dimensions: ["overworld"],
     cubiomesType: 2,
     estimatedRegionSize: 32,
-    estimatedChance: 0.42
+    estimatedChance: 0.42,
+    minVisiblePixelsPerBlock: ZOOM_REGIONAL
   },
   {
     id: "desert_temple",
@@ -185,7 +218,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     dimensions: ["overworld"],
     cubiomesType: 1,
     estimatedRegionSize: 32,
-    estimatedChance: 0.44
+    estimatedChance: 0.44,
+    minVisiblePixelsPerBlock: ZOOM_REGIONAL
   },
   {
     id: "witch_hut",
@@ -196,7 +230,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     dimensions: ["overworld"],
     cubiomesType: 3,
     estimatedRegionSize: 32,
-    estimatedChance: 0.38
+    estimatedChance: 0.38,
+    minVisiblePixelsPerBlock: ZOOM_REGIONAL
   },
   {
     id: "treasure",
@@ -207,7 +242,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     dimensions: ["overworld"],
     cubiomesType: 14,
     estimatedRegionSize: 18,
-    estimatedChance: 0.28
+    estimatedChance: 0.28,
+    minVisiblePixelsPerBlock: ZOOM_DENSE
   },
   {
     id: "shipwreck",
@@ -218,7 +254,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     dimensions: ["overworld"],
     cubiomesType: 7,
     estimatedRegionSize: 24,
-    estimatedChance: 0.58
+    estimatedChance: 0.58,
+    minVisiblePixelsPerBlock: ZOOM_REGIONAL
   },
   {
     id: "igloo",
@@ -229,7 +266,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     dimensions: ["overworld"],
     cubiomesType: 4,
     estimatedRegionSize: 32,
-    estimatedChance: 0.36
+    estimatedChance: 0.36,
+    minVisiblePixelsPerBlock: ZOOM_REGIONAL
   },
   {
     id: "ocean_ruins",
@@ -240,7 +278,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     dimensions: ["overworld"],
     cubiomesType: 6,
     estimatedRegionSize: 20,
-    estimatedChance: 0.68
+    estimatedChance: 0.68,
+    minVisiblePixelsPerBlock: ZOOM_LOCAL
   },
   {
     id: "fossil",
@@ -250,7 +289,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     color: "#d9d2b1",
     dimensions: ["overworld", "nether"],
     estimatedRegionSize: 28,
-    estimatedChance: 0.22
+    estimatedChance: 0.22,
+    minVisiblePixelsPerBlock: ZOOM_DENSE
   },
   {
     id: "cave",
@@ -260,7 +300,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     color: "#4c5563",
     dimensions: ["overworld", "nether"],
     estimatedRegionSize: 10,
-    estimatedChance: 0.25
+    estimatedChance: 0.25,
+    minVisiblePixelsPerBlock: ZOOM_CHUNK
   },
   {
     id: "ravine",
@@ -270,7 +311,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     color: "#78808c",
     dimensions: ["overworld"],
     estimatedRegionSize: 22,
-    estimatedChance: 0.23
+    estimatedChance: 0.23,
+    minVisiblePixelsPerBlock: ZOOM_DETAIL
   },
   {
     id: "lava_pool",
@@ -280,7 +322,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     color: "#f0762d",
     dimensions: ["overworld", "nether"],
     estimatedRegionSize: 16,
-    estimatedChance: 0.3
+    estimatedChance: 0.3,
+    minVisiblePixelsPerBlock: ZOOM_DETAIL
   },
   {
     id: "geode",
@@ -291,7 +334,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     dimensions: ["overworld"],
     cubiomesType: 17,
     estimatedRegionSize: 24,
-    estimatedChance: 0.26
+    estimatedChance: 0.26,
+    minVisiblePixelsPerBlock: ZOOM_DETAIL
   },
   {
     id: "apple",
@@ -301,7 +345,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     color: "#f2b44b",
     dimensions: ["overworld"],
     estimatedRegionSize: 28,
-    estimatedChance: 0.2
+    estimatedChance: 0.2,
+    minVisiblePixelsPerBlock: ZOOM_DETAIL
   },
   {
     id: "ore_veins",
@@ -311,7 +356,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     color: "#b89070",
     dimensions: ["overworld"],
     estimatedRegionSize: 18,
-    estimatedChance: 0.32
+    estimatedChance: 0.32,
+    minVisiblePixelsPerBlock: ZOOM_DETAIL
   },
   {
     id: "desert_well",
@@ -322,7 +368,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     dimensions: ["overworld"],
     cubiomesType: 16,
     estimatedRegionSize: 32,
-    estimatedChance: 0.24
+    estimatedChance: 0.24,
+    minVisiblePixelsPerBlock: ZOOM_LOCAL
   },
   {
     id: "trail_ruins",
@@ -333,7 +380,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     dimensions: ["overworld"],
     cubiomesType: 23,
     estimatedRegionSize: 34,
-    estimatedChance: 0.42
+    estimatedChance: 0.42,
+    minVisiblePixelsPerBlock: ZOOM_LOCAL
   },
   {
     id: "trial_chamber",
@@ -344,7 +392,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     dimensions: ["overworld"],
     cubiomesType: 24,
     estimatedRegionSize: 34,
-    estimatedChance: 0.45
+    estimatedChance: 0.45,
+    minVisiblePixelsPerBlock: ZOOM_REGIONAL
   },
   {
     id: "fortress",
@@ -355,7 +404,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     dimensions: ["nether"],
     cubiomesType: 18,
     estimatedRegionSize: 27,
-    estimatedChance: 0.62
+    estimatedChance: 0.62,
+    minVisiblePixelsPerBlock: ZOOM_REGIONAL
   },
   {
     id: "bastion",
@@ -366,7 +416,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     dimensions: ["nether"],
     cubiomesType: 19,
     estimatedRegionSize: 27,
-    estimatedChance: 0.5
+    estimatedChance: 0.5,
+    minVisiblePixelsPerBlock: ZOOM_REGIONAL
   },
   {
     id: "ruined_portal_nether",
@@ -377,7 +428,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     dimensions: ["nether"],
     cubiomesType: 12,
     estimatedRegionSize: 25,
-    estimatedChance: 0.64
+    estimatedChance: 0.64,
+    minVisiblePixelsPerBlock: ZOOM_REGIONAL
   },
   {
     id: "end_city",
@@ -388,7 +440,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     dimensions: ["end"],
     cubiomesType: 20,
     estimatedRegionSize: 20,
-    estimatedChance: 0.52
+    estimatedChance: 0.52,
+    minVisiblePixelsPerBlock: ZOOM_REGIONAL
   },
   {
     id: "end_gateway",
@@ -399,7 +452,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     dimensions: ["end"],
     cubiomesType: 21,
     estimatedRegionSize: 48,
-    estimatedChance: 0.25
+    estimatedChance: 0.25,
+    minVisiblePixelsPerBlock: ZOOM_REGIONAL
   },
   {
     id: "end_island",
@@ -410,7 +464,8 @@ export const seedFeatureCatalog: SeedFeature[] = [
     dimensions: ["end"],
     cubiomesType: 22,
     estimatedRegionSize: 18,
-    estimatedChance: 0.45
+    estimatedChance: 0.45,
+    minVisiblePixelsPerBlock: ZOOM_REGIONAL
   }
 ];
 
@@ -580,12 +635,56 @@ export const fallbackBiomePalettes: Record<SeedDimension, SeedMapBiome[]> = {
   ]
 };
 
+export const fallbackOverworldLayerPalettes: Record<SeedBiomeLayer, SeedMapBiome[]> = {
+  surface: fallbackBiomePalettes.overworld,
+  subsurface: [
+    biomeFromId("dripstone_caves"),
+    biomeFromId("lush_caves"),
+    biomeFromId("deep_dark"),
+    biomeFromId("stony_peaks"),
+    biomeFromId("windswept_hills"),
+    biomeFromId("grove"),
+    biomeFromId("forest"),
+    biomeFromId("plains"),
+    biomeFromId("taiga"),
+    biomeFromId("jungle"),
+    biomeFromId("swamp"),
+    biomeFromId("badlands"),
+    biomeFromId("desert"),
+    biomeFromId("ocean")
+  ],
+  abyssal: [
+    biomeFromId("deep_dark"),
+    biomeFromId("dripstone_caves"),
+    biomeFromId("lush_caves"),
+    biomeFromId("stony_peaks"),
+    biomeFromId("windswept_gravelly_hills"),
+    biomeFromId("badlands"),
+    biomeFromId("ocean")
+  ]
+};
+
 export function seedFeatureLabel(feature: SeedFeature, language: string) {
   return language === "pt-br" ? feature.labelPt : feature.labelEn;
 }
 
+export function seedBiomeLayerLabel(layer: SeedBiomeLayer, language: string) {
+  const entry = seedBiomeLayers.find((item) => item.id === layer) ?? seedBiomeLayers[0];
+  return language === "pt-br" ? entry.labelPt : entry.labelEn;
+}
+
+export function seedBiomeLayerY(layer: SeedBiomeLayer) {
+  return (seedBiomeLayers.find((item) => item.id === layer) ?? seedBiomeLayers[0]).y;
+}
+
 export function featureById(id: string) {
   return seedFeatureCatalog.find((feature) => feature.id === id);
+}
+
+export function seedFeatureVisibleAtScale(featureId: string, pixelsPerBlock: number) {
+  const feature = featureById(featureId);
+  if (!feature) return true;
+  return pixelsPerBlock >= (feature.minVisiblePixelsPerBlock ?? ZOOM_LOCAL);
 }
 
 export function seedMarkerKey(marker: Pick<SeedMarker, "featureId" | "x" | "z">) {
@@ -724,13 +823,35 @@ export function fallbackBiomeAt(
   version: string,
   platform: SeedPlatform,
   dimension: SeedDimension,
+  biomeLayer: SeedBiomeLayer,
   chunkX: number,
   chunkZ: number
 ): SeedMapBiome {
-  const palette = fallbackBiomePalettes[dimension];
-  const base = seedHash(`${seed}:${version}:${platform}:${dimension}`);
-  const cellSize = dimension === "overworld" ? 7 : dimension === "nether" ? 5 : 9;
-  const regionSize = dimension === "overworld" ? 24 : dimension === "nether" ? 14 : 18;
+  const palette =
+    dimension === "overworld"
+      ? fallbackOverworldLayerPalettes[biomeLayer]
+      : fallbackBiomePalettes[dimension];
+  const base = seedHash(`${seed}:${version}:${platform}:${dimension}:${biomeLayer}`);
+  const cellSize =
+    dimension === "overworld"
+      ? biomeLayer === "surface"
+        ? 7
+        : biomeLayer === "subsurface"
+          ? 5
+          : 4
+      : dimension === "nether"
+        ? 5
+        : 9;
+  const regionSize =
+    dimension === "overworld"
+      ? biomeLayer === "surface"
+        ? 24
+        : biomeLayer === "subsurface"
+          ? 16
+          : 12
+      : dimension === "nether"
+        ? 14
+        : 18;
   const low = cellNoise(base, Math.floor(chunkX / cellSize), Math.floor(chunkZ / cellSize));
   const high = cellNoise(base ^ 0x9e3779b9, Math.floor(chunkX / regionSize), Math.floor(chunkZ / regionSize));
   const ridge = cellNoise(base ^ 0x85ebca6b, Math.floor((chunkX + chunkZ) / 12), Math.floor((chunkZ - chunkX) / 12));

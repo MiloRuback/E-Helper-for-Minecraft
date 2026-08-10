@@ -1,10 +1,10 @@
-# Seed Map Chunkbase Parity Plan
+# Seed Map Chunkbase Parity
 
-Este documento define o trabalho de dev para deixar o Seed Map do Every Helper mais proximo do comportamento do Chunkbase, com icones de imagem, filtros limpos, tooltip de estruturas, estado de visitado, paleta ampla de biomas e desempenho adequado durante pan/zoom.
+Este documento registra o comportamento implementado no Seed Map do Every Helper para aproximar a experiencia do Chunkbase, com icones de imagem, filtros limpos, tooltip de estruturas, estado de visitado, paleta ampla de biomas, camadas do Overworld e desempenho adequado durante pan/zoom.
 
 ## Fontes De Referencia
 
-- Chunkbase Seed Map, consultado em 2026-08-10: controles de seed, versao, dimensao, features, highlight biomes, zoom/pan e completed locations.
+- Chunkbase Seed Map, consultado em 2026-08-10: controles de seed, versao, dimensao, features, highlight biomes, biome height, zoom/pan, completed locations e regra de ocultar features em zoom distante.
 - Cubiomes local: motor WASM usado para Java, biomas e estruturas suportadas.
 - Minecraft Wiki/Mojang Help: nomenclatura moderna dos biomas por dimensao.
 
@@ -22,6 +22,10 @@ Este documento define o trabalho de dev para deixar o Seed Map do Every Helper m
 10. A legenda deve mostrar somente biomas visiveis e cada swatch precisa existir no canvas.
 11. Pan/zoom nao pode travar. O render deve ser agendado e otimizado.
 12. A QA deve verificar canvas nao vazio, filtros, icones reais, tooltip, visitado, dimensoes, Bedrock estimado, legenda/canvas, wheel sem scroll e desempenho basico.
+13. O zoom precisa cobrir o mesmo intervalo funcional do Chunkbase: de `1 px = 128 m` ate `8 px = 1 m`.
+14. O Overworld precisa oferecer as camadas `Superficie`, `Subsolo` e `Abissal`; Nether e End nao exibem esse seletor.
+15. Marcadores com baixa prioridade visual devem ficar selecionados, mas esmaecidos, ate o zoom necessario para evitar poluicao visual.
+16. Strongholds devem continuar aparecendo mesmo no zoom minimo.
 
 ## Fluxo De Dados
 
@@ -32,7 +36,7 @@ flowchart TD
   C --> D{"Platform"}
   D -->|"Java"| E["Cubiomes WASM"]
   D -->|"Bedrock"| F["Deterministic estimated layer"]
-  E --> G["Visible biomes"]
+  E --> G["Visible biomes by dimension/layer"]
   E --> H["Exact markers"]
   F --> G
   F --> I["Estimated markers"]
@@ -58,11 +62,12 @@ flowchart LR
 
 ### Layout
 
-- Linha 1: Seed, Edicao, Versao, Dimensao.
-- Linha 2: X, Z, Go, zoom in/out, reset, expandir.
-- Features: caixa compacta com botoes menores, icone 24px, texto curto e badge `C` apenas para Java exato.
+- Linha 1: Seed, Edicao, Versao, Bioma e Camada quando aplicavel.
+- Linha 2: Dimensao, X, Z, Go, zoom in/out, reset, expandir.
+- Features: caixa compacta com botoes menores, icone 24px, texto curto e estado esmaecido para itens selecionados que precisam de mais zoom.
 - Canvas: ocupa a area principal, com HUD discreto e tooltip flutuante.
 - Legenda: abaixo do canvas, baseada nos biomas realmente desenhados.
+- Mobile: controles essenciais primeiro, mapa em seguida, legenda e depois filtros longos para nao esconder o canvas.
 
 ## Icones
 
@@ -125,22 +130,15 @@ Valor:
 
 ## Render E Desempenho
 
-Problemas atuais:
+Implementado:
 
-- O canvas redesenha diretamente em cada mudanca de estado.
-- O `onPointerMove` chama `setOffset` muitas vezes por segundo.
-- Hit-test de marcadores ainda nao existe.
-- O wheel pode acionar scroll da pagina em alguns navegadores se o listener passivo interferir.
-
-Plano:
-
-- Usar `requestAnimationFrame` para agrupar pan/zoom.
-- Usar refs para `offset`, `zoom`, `markers` e `hitZones`, reduzindo renders React durante pan.
-- Usar cache por viewport discretizado para biomas fallback.
-- Nao desenhar texto dentro do marcador no canvas.
-- Usar `ImageBitmap` ou `HTMLImageElement` cacheado para icones.
-- Registrar wheel nativo no canvas com `{ passive: false }` para garantir `preventDefault`.
-- Limitar markers estimados quando o zoom esta muito aberto.
+- `requestAnimationFrame` agrupa pan e zoom antes de atualizar `offset`/`zoom`.
+- O wheel usa listener nativo com `{ passive: false }`, impede scroll da pagina e preserva o ponto sob o cursor.
+- O range de zoom e definido por escala real de bloco: minimo `1/128 px` por bloco, maximo `8 px` por bloco.
+- O motor Cubiomes cacheia biomas por seed/versao/dimensao/camada para evitar chamadas WASM repetidas durante zoom e pan.
+- Estruturas Cubiomes sao cacheadas por regiao, e strongholds sao gerados uma vez por mundo e filtrados por viewport.
+- Em zoom muito distante, o mapa usa uma camada de overview para biomas, mantendo strongholds/spawn visiveis e evitando travamentos.
+- Marcadores sao filtrados por `minVisiblePixelsPerBlock`; filtros ativos fora do zoom atual ficam esmaecidos em vez de desligados.
 
 ## Paleta De Biomas
 
@@ -153,6 +151,7 @@ Regras:
 - Nether usa vermelho, roxo, ciano e cinza de alto contraste.
 - End usa amarelos/olivas/lilas palidos.
 - Biomas desconhecidos caem em cor derivada do nome para evitar tudo verde.
+- Overworld fallback possui paletas separadas para `Superficie`, `Subsolo` e `Abissal`.
 
 ## QA Obrigatoria
 
@@ -168,6 +167,11 @@ Automatizada em `tools/qa/seed-map-ux.mjs`:
 8. Hover em marcador abre tooltip com coordenadas e checkbox.
 9. Checkbox de visitado deixa o marcador semi-transparente e persiste apos redraw.
 10. Pan rapido mantem tempo medio de frame aceitavel.
+11. Camadas do Overworld alteram dataset, legenda e pintura do canvas.
+12. Zoom minimo chega a `1 px = 128 m` e mantem strongholds visiveis.
+13. Zoom maximo chega a `8 px = 1 m`.
+14. Nether e End escondem o seletor de camada do Overworld.
+15. Mobile nao pode ter overflow horizontal e precisa renderizar canvas nao vazio.
 
 Manual:
 
@@ -181,4 +185,3 @@ Manual:
 - Cubiomes local e usado para Java. Bedrock continua estimado enquanto nao houver gerador Bedrock exato no projeto.
 - Algumas features do proprio Chunkbase sao documentadas como nao 100% precisas, como dungeons, geodes, apples e alguns portais/ruins.
 - Os icones sao autorais do Every Helper, inspirados por conceitos do Minecraft, sem copiar assets do Chunkbase.
-

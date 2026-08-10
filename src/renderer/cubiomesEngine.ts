@@ -20,6 +20,14 @@ type CubiomesExports = {
   eh_structure_find: (structureType: number, regX: number, regZ: number) => number;
   eh_structure_x: () => number;
   eh_structure_z: () => number;
+  eh_strongholds_find: (
+    minChunkX: number,
+    maxChunkX: number,
+    minChunkZ: number,
+    maxChunkZ: number
+  ) => number;
+  eh_stronghold_x: (index: number) => number;
+  eh_stronghold_z: (index: number) => number;
 };
 
 export interface CubiomesBiome {
@@ -68,6 +76,10 @@ let enginePromise: Promise<CubiomesEngine> | null = null;
 export class CubiomesEngine {
   private readonly textDecoder = new TextDecoder();
   private configuredKey = "";
+  private readonly biomeCache = new Map<string, CubiomesBiome>();
+  private readonly structureCache = new Map<string, SeedMarker | null>();
+  private strongholdCacheKey = "";
+  private strongholdCache: SeedMarker[] = [];
 
   constructor(private readonly exports: CubiomesExports) {
     this.exports._initialize?.();
@@ -83,17 +95,30 @@ export class CubiomesEngine {
     const seedLo = Number(seed & 0xffffffffn);
     this.exports.eh_init(mc, dim, seedHi, seedLo);
     this.configuredKey = key;
+    this.biomeCache.clear();
+    this.structureCache.clear();
+    this.strongholdCacheKey = "";
+    this.strongholdCache = [];
   }
 
   biomeAt(blockX: number, blockZ: number, y = 63): CubiomesBiome {
+    const cacheKey = `${y}:${blockX}:${blockZ}`;
+    const cached = this.biomeCache.get(cacheKey);
+    if (cached) return cached;
+
     const id = this.exports.eh_biome_at(blockX, y, blockZ);
     const name = this.readCString(this.exports.eh_biome_name(id));
-    return {
+    const biome = {
       id,
       name,
       label: biomeLabel(name),
       color: biomeColor(name)
     };
+    if (this.biomeCache.size > 120000) {
+      this.biomeCache.clear();
+    }
+    this.biomeCache.set(cacheKey, biome);
+    return biome;
   }
 
   structuresInChunkBounds(
@@ -105,6 +130,22 @@ export class CubiomesEngine {
   ): SeedMarker[] {
     const structures: SeedMarker[] = [];
     const seen = new Set<string>();
+
+    if (enabledFeatureIds.has("stronghold")) {
+      const minX = minChunkX * 16;
+      const maxX = (maxChunkX + 1) * 16 - 1;
+      const minZ = minChunkZ * 16;
+      const maxZ = (maxChunkZ + 1) * 16 - 1;
+      for (const marker of this.strongholdsForCurrentWorld()) {
+        if (marker.x < minX || marker.x > maxX || marker.z < minZ || marker.z > maxZ) {
+          continue;
+        }
+        const key = `stronghold:${marker.x}:${marker.z}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        structures.push(marker);
+      }
+    }
 
     cubiomesStructureFeatures.forEach((structure) => {
       if (!enabledFeatureIds.has(structure.id)) return;
@@ -120,9 +161,32 @@ export class CubiomesEngine {
 
       for (let regZ = minRegZ; regZ <= maxRegZ; regZ += 1) {
         for (let regX = minRegX; regX <= maxRegX; regX += 1) {
-          if (!this.exports.eh_structure_find(structureType, regX, regZ)) continue;
-          const x = this.exports.eh_structure_x();
-          const z = this.exports.eh_structure_z();
+          const cacheKey = `${structureType}:${regX}:${regZ}`;
+          let marker = this.structureCache.get(cacheKey);
+          if (!this.structureCache.has(cacheKey)) {
+            marker = null;
+            if (this.exports.eh_structure_find(structureType, regX, regZ)) {
+              const x = this.exports.eh_structure_x();
+              const z = this.exports.eh_structure_z();
+              const catalogFeature = featureById(structure.id) ?? structure;
+              marker = {
+                featureId: structure.id,
+                label: catalogFeature.labelEn,
+                glyph: catalogFeature.glyph,
+                color: catalogFeature.color,
+                x,
+                z,
+                estimated: false
+              };
+            }
+            if (this.structureCache.size > 80000) {
+              this.structureCache.clear();
+            }
+            this.structureCache.set(cacheKey, marker);
+          }
+          if (!marker) continue;
+          const x = marker.x;
+          const z = marker.z;
           const chunkX = Math.floor(x / 16);
           const chunkZ = Math.floor(z / 16);
           if (
@@ -136,21 +200,36 @@ export class CubiomesEngine {
           const key = `${structure.id}:${x}:${z}`;
           if (seen.has(key)) continue;
           seen.add(key);
-          const catalogFeature = featureById(structure.id) ?? structure;
-          structures.push({
-            featureId: structure.id,
-            label: catalogFeature.labelEn,
-            glyph: catalogFeature.glyph,
-            color: catalogFeature.color,
-            x,
-            z,
-            estimated: false
-          });
+          structures.push(marker);
         }
       }
     });
 
     return structures;
+  }
+
+  private strongholdsForCurrentWorld() {
+    if (this.strongholdCacheKey === this.configuredKey) {
+      return this.strongholdCache;
+    }
+
+    const strongholdFeature = featureById("stronghold");
+    const count = this.exports.eh_strongholds_find(-2000000, 2000000, -2000000, 2000000);
+    const markers: SeedMarker[] = [];
+    for (let index = 0; index < count; index += 1) {
+      markers.push({
+        featureId: "stronghold",
+        label: strongholdFeature?.labelEn ?? "Stronghold",
+        glyph: strongholdFeature?.glyph ?? "SH",
+        color: strongholdFeature?.color ?? "#6ac0a5",
+        x: this.exports.eh_stronghold_x(index),
+        z: this.exports.eh_stronghold_z(index),
+        estimated: false
+      });
+    }
+    this.strongholdCacheKey = this.configuredKey;
+    this.strongholdCache = markers;
+    return this.strongholdCache;
   }
 
   private readCString(pointer: number) {

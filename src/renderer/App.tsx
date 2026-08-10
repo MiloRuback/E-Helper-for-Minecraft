@@ -63,12 +63,20 @@ import {
   featureById,
   isEstimatedSlimeChunk,
   isJavaSlimeChunk,
+  seedBiomeLayerLabel,
+  seedBiomeLayers,
+  seedBiomeLayerY,
   seedDimensions,
+  seedFeatureVisibleAtScale,
   seedFeatureCatalog,
   seedFeatureIconDataUrl,
   seedFeatureLabel,
   seedMarkerKey,
   seedPlatforms,
+  SEED_DEFAULT_PIXELS_PER_BLOCK,
+  SEED_MAX_PIXELS_PER_BLOCK,
+  SEED_MIN_PIXELS_PER_BLOCK,
+  type SeedBiomeLayer,
   type SeedDimension,
   type SeedMapBiome,
   type SeedMarker,
@@ -1895,9 +1903,10 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 const SEED_TILE_SIZE = 22;
-const MIN_SEED_ZOOM = 0.25;
-const MAX_SEED_ZOOM = 10;
-const MIN_MARKER_ZOOM = 0.45;
+const SEED_CHUNK_BLOCKS = 16;
+const MIN_SEED_ZOOM = pixelsPerBlockToZoom(SEED_MIN_PIXELS_PER_BLOCK);
+const MAX_SEED_ZOOM = pixelsPerBlockToZoom(SEED_MAX_PIXELS_PER_BLOCK);
+const DEFAULT_SEED_ZOOM = pixelsPerBlockToZoom(SEED_DEFAULT_PIXELS_PER_BLOCK);
 
 type MarkerHitZone = {
   marker: SeedMarker;
@@ -1919,7 +1928,8 @@ function SeedMapPage({ language }: { language: Language }) {
   const [version, setVersion] = useState(minecraftVersions[0]);
   const [platform, setPlatform] = useState<SeedPlatform>("java");
   const [dimension, setDimension] = useState<SeedDimension>("overworld");
-  const [zoom, setZoom] = useState(1.4);
+  const [biomeLayer, setBiomeLayer] = useState<SeedBiomeLayer>("surface");
+  const [zoom, setZoom] = useState(DEFAULT_SEED_ZOOM);
   const [offset, setOffset] = useState({ x: 0, z: 0 });
   const [target, setTarget] = useState({ x: 0, z: 0 });
   const [highlightedBiome, setHighlightedBiome] = useState("");
@@ -1944,6 +1954,7 @@ function SeedMapPage({ language }: { language: Language }) {
   const iconCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const visitedStorageKeyRef = useRef("");
   const pendingOffsetRef = useRef(offset);
+  const pendingZoomRef = useRef(zoom);
   const offsetFrameRef = useRef<number | null>(null);
 
   const availableFeatures = useMemo(
@@ -1959,19 +1970,34 @@ function SeedMapPage({ language }: { language: Language }) {
       ),
     [availableFeatures, enabledFeatures]
   );
+  const pixelsPerBlock = seedPixelsPerBlock(zoom);
+  const visibleMarkerFeatureIds = useMemo(
+    () =>
+      new Set(
+        Array.from(enabledFeatureIds).filter(
+          (featureId) =>
+            featureId === "biomes" ||
+            featureId === "spawn" ||
+            seedFeatureVisibleAtScale(featureId, pixelsPerBlock)
+        )
+      ),
+    [enabledFeatureIds, pixelsPerBlock]
+  );
   const exactJavaFeatureIds = useMemo(
     () =>
       new Set(
         seedFeatureCatalog
           .filter(
             (feature) =>
-              feature.dimensions.includes(dimension) && typeof feature.cubiomesType === "number"
+              feature.dimensions.includes(dimension) &&
+              (typeof feature.cubiomesType === "number" || feature.id === "stronghold")
           )
           .map((feature) => feature.id)
       ),
     [dimension]
   );
   const javaEngineActive = Boolean(platform === "java" && cubiomes && seedEngineStatus === "active");
+  const useExactBiomeEngine = javaEngineActive && pixelsPerBlock >= 1 / 32;
   const selectedVisibleBiome = visibleBiomes.some((biome) => biome.name === highlightedBiome)
     ? highlightedBiome
     : "";
@@ -1997,6 +2023,12 @@ function SeedMapPage({ language }: { language: Language }) {
       disposed = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (dimension !== "overworld") {
+      setBiomeLayer("surface");
+    }
+  }, [dimension]);
 
   useEffect(() => {
     let disposed = false;
@@ -2048,6 +2080,10 @@ function SeedMapPage({ language }: { language: Language }) {
     pendingOffsetRef.current = offset;
   }, [offset]);
 
+  useEffect(() => {
+    pendingZoomRef.current = zoom;
+  }, [zoom]);
+
   useEffect(
     () => () => {
       if (offsetFrameRef.current !== null) {
@@ -2067,14 +2103,14 @@ function SeedMapPage({ language }: { language: Language }) {
       const pointerX = event.clientX - rect.left - rect.width / 2;
       const pointerZ = event.clientY - rect.top - rect.height / 2;
       const multiplier = event.deltaY < 0 ? 1.15 : 1 / 1.15;
-      setZoom((current) => {
-        const next = clampSeedZoom(current * multiplier);
-        const ratio = next / current;
-        setOffset((currentOffset) => ({
-          x: pointerX - (pointerX - currentOffset.x) * ratio,
-          z: pointerZ - (pointerZ - currentOffset.z) * ratio
-        }));
-        return next;
+      const currentZoom = pendingZoomRef.current;
+      const nextZoom = clampSeedZoom(currentZoom * multiplier);
+      if (Math.abs(nextZoom - currentZoom) < 0.000001) return;
+      const ratio = nextZoom / currentZoom;
+      const currentOffset = pendingOffsetRef.current;
+      queueViewport(nextZoom, {
+        x: pointerX - (pointerX - currentOffset.x) * ratio,
+        z: pointerZ - (pointerZ - currentOffset.z) * ratio
       });
     };
     canvas.addEventListener("wheel", handleWheel, { passive: false });
@@ -2107,15 +2143,17 @@ function SeedMapPage({ language }: { language: Language }) {
       cubiomes.configure(seed, version, dimension);
     }
 
-    const biomeStep = tile < 8 ? Math.ceil(8 / tile) : 1;
+    const targetBiomePixelSize = pixelsPerBlock < 1 / 32 ? 24 : 10;
+    const biomeStep = tile < targetBiomePixelSize ? Math.ceil(targetBiomePixelSize / tile) : 1;
     for (let z = startZ; z <= endZ; z += biomeStep) {
       for (let x = startX; x <= endX; x += biomeStep) {
         const biome = biomeForSeedCell({
-          cubiomes: javaEngineActive ? cubiomes : null,
+          cubiomes: useExactBiomeEngine ? cubiomes : null,
           seed,
           version,
           platform,
           dimension,
+          biomeLayer,
           chunkX: x,
           chunkZ: z
         });
@@ -2138,7 +2176,7 @@ function SeedMapPage({ language }: { language: Language }) {
 
         if (
           tile >= 10 &&
-          enabledFeatureIds.has("slime_chunk") &&
+          visibleMarkerFeatureIds.has("slime_chunk") &&
           dimension === "overworld" &&
           (platform === "java"
             ? isJavaSlimeChunk(seed, x, z)
@@ -2160,27 +2198,24 @@ function SeedMapPage({ language }: { language: Language }) {
       setVisibleBiomes(sortedBiomes);
     }
 
-    const showMarkers = zoom >= MIN_MARKER_ZOOM;
     const exactMarkers =
-      showMarkers && javaEngineActive && cubiomes
-        ? cubiomes.structuresInChunkBounds(startX, endX, startZ, endZ, enabledFeatureIds)
+      javaEngineActive && cubiomes
+        ? cubiomes.structuresInChunkBounds(startX, endX, startZ, endZ, visibleMarkerFeatureIds)
         : [];
-    const estimatedMarkers = showMarkers
-      ? estimatedMarkersInChunkBounds(
-          seed,
-          version,
-          platform,
-          dimension,
-          startX,
-          endX,
-          startZ,
-          endZ,
-          enabledFeatureIds,
-          javaEngineActive ? exactJavaFeatureIds : new Set<string>()
-        )
-      : [];
+    const estimatedMarkers = estimatedMarkersInChunkBounds(
+      seed,
+      version,
+      platform,
+      dimension,
+      startX,
+      endX,
+      startZ,
+      endZ,
+      visibleMarkerFeatureIds,
+      javaEngineActive ? exactJavaFeatureIds : new Set<string>()
+    );
     const markers = [...exactMarkers, ...estimatedMarkers];
-    if (enabledFeatureIds.has("spawn") && dimension === "overworld") {
+    if (visibleMarkerFeatureIds.has("spawn") && dimension === "overworld") {
       markers.push({
         featureId: "spawn",
         label: "Spawn Point",
@@ -2201,6 +2236,13 @@ function SeedMapPage({ language }: { language: Language }) {
       visitedMarkers
     );
     canvas.dataset.markerCount = String(markerHitZonesRef.current.length);
+    canvas.dataset.pixelsPerBlock = pixelsPerBlock.toFixed(6);
+    canvas.dataset.zoomRange = `${SEED_MIN_PIXELS_PER_BLOCK},${SEED_MAX_PIXELS_PER_BLOCK}`;
+    canvas.dataset.biomeLayer = dimension === "overworld" ? biomeLayer : "surface";
+    canvas.dataset.biomeEngine = useExactBiomeEngine ? "cubiomes" : "overview";
+    canvas.dataset.strongholdCount = String(
+      markerHitZonesRef.current.filter((zone) => zone.marker.featureId === "stronghold").length
+    );
     const firstVisibleHitZone = markerHitZonesRef.current.find(
       (zone) =>
         zone.x >= 0 &&
@@ -2246,6 +2288,7 @@ function SeedMapPage({ language }: { language: Language }) {
     ctx.fillStyle = "rgba(16, 23, 34, 0.9)";
     ctx.fillRect(rect.width / 2 - 3, rect.height / 2 - 3, 6, 6);
   }, [
+    biomeLayer,
     cubiomes,
     dimension,
     enabledFeatureIds,
@@ -2253,10 +2296,13 @@ function SeedMapPage({ language }: { language: Language }) {
     iconCacheVersion,
     javaEngineActive,
     offset,
+    pixelsPerBlock,
     platform,
     seed,
     selectedVisibleBiome,
+    useExactBiomeEngine,
     version,
+    visibleMarkerFeatureIds,
     visitedMarkers,
     zoom
   ]);
@@ -2272,13 +2318,19 @@ function SeedMapPage({ language }: { language: Language }) {
     });
   }
 
-  function queueOffset(nextOffset: { x: number; z: number }) {
+  function queueViewport(nextZoom: number, nextOffset: { x: number; z: number }) {
+    pendingZoomRef.current = nextZoom;
     pendingOffsetRef.current = nextOffset;
     if (offsetFrameRef.current !== null) return;
     offsetFrameRef.current = requestAnimationFrame(() => {
       offsetFrameRef.current = null;
+      setZoom(pendingZoomRef.current);
       setOffset(pendingOffsetRef.current);
     });
+  }
+
+  function queueOffset(nextOffset: { x: number; z: number }) {
+    queueViewport(pendingZoomRef.current, nextOffset);
   }
 
   function mapCoordinates(event: ReactMouseEvent<HTMLCanvasElement>) {
@@ -2302,11 +2354,12 @@ function SeedMapPage({ language }: { language: Language }) {
       cubiomes.configure(seed, version, dimension);
     }
     const biome = biomeForSeedCell({
-      cubiomes: javaEngineActive ? cubiomes : null,
+      cubiomes: useExactBiomeEngine ? cubiomes : null,
       seed,
       version,
       platform,
       dimension,
+      biomeLayer,
       chunkX,
       chunkZ
     });
@@ -2356,10 +2409,15 @@ function SeedMapPage({ language }: { language: Language }) {
     platform === "bedrock"
       ? copy(language, "Bedrock em modo estimado", "Bedrock estimated mode")
       : seedEngineStatus === "active"
-        ? copy(language, "Java Cubiomes exato", "Exact Java Cubiomes")
+        ? useExactBiomeEngine
+          ? copy(language, "Java Cubiomes exato", "Exact Java Cubiomes")
+          : copy(language, "Java overview otimizado", "Optimized Java overview")
         : seedEngineStatus === "loading"
           ? copy(language, "Carregando Cubiomes...", "Loading Cubiomes...")
           : copy(language, "Fallback deterministico", "Deterministic fallback");
+  const scaleLabel = seedScaleLabel(pixelsPerBlock, language);
+  const layerLabel =
+    dimension === "overworld" ? seedBiomeLayerLabel(biomeLayer, language) : "";
 
   return (
     <section className="workbench">
@@ -2407,6 +2465,24 @@ function SeedMapPage({ language }: { language: Language }) {
               ))}
             </select>
           </label>
+          {dimension === "overworld" && (
+            <label className="inline-input">
+              {copy(language, "Camada", "Layer")}
+              <select
+                value={biomeLayer}
+                onChange={(event) => {
+                  setBiomeLayer(event.target.value as SeedBiomeLayer);
+                  setHighlightedBiome("");
+                }}
+              >
+                {seedBiomeLayers.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {language === "pt-br" ? item.labelPt : item.labelEn}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
         <div className="toolbar seed-toolbar">
           <div className="segmented seed-segmented" aria-label={copy(language, "Dimensao", "Dimension")}>
@@ -2456,7 +2532,7 @@ function SeedMapPage({ language }: { language: Language }) {
           <button
             onClick={() => {
               setOffset({ x: 0, z: 0 });
-              setZoom(1.4);
+              setZoom(DEFAULT_SEED_ZOOM);
             }}
             title={copy(language, "Centralizar", "Reset")}
           >
@@ -2466,39 +2542,55 @@ function SeedMapPage({ language }: { language: Language }) {
             {mapExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
           </button>
         </div>
-        <div className="feature-panel">
-          <div className="feature-panel-header">
-            <strong>{copy(language, "Marcadores", "Features")}</strong>
-            <span>
-              {drawnMarkerCount} {copy(language, "visiveis", "visible")}
-            </span>
-            <button onClick={() => setAllVisibleFeatures(true)}>
-              <Check size={14} /> {copy(language, "Selecionar tudo", "Select all")}
-            </button>
-            <button onClick={() => setAllVisibleFeatures(false)}>
-              <X size={14} /> {copy(language, "Limpar", "Clear")}
-            </button>
-          </div>
-          <div className="feature-grid">
-            {availableFeatures.map((feature) => {
-              const exact =
-                platform === "java" &&
-                seedEngineStatus === "active" &&
-                typeof feature.cubiomesType === "number";
-              const label = seedFeatureLabel(feature, language);
-              return (
-                <button
-                  key={feature.id}
-                  className={enabledFeatures[feature.id] ? "feature-toggle active" : "feature-toggle"}
-                  onClick={() => setFeature(feature.id, !enabledFeatures[feature.id])}
-                  title={exact ? `${label} - Cubiomes` : `${label} - ${copy(language, "estimado", "estimated")}`}
-                >
-                  <img className="feature-icon" src={seedFeatureIconDataUrl(feature)} alt="" aria-hidden="true" />
-                  <span>{label}</span>
-                </button>
-              );
-            })}
-          </div>
+      </div>
+      <div className="feature-panel">
+        <div className="feature-panel-header">
+          <strong>{copy(language, "Marcadores", "Features")}</strong>
+          <span>
+            {drawnMarkerCount} {copy(language, "visiveis", "visible")}
+          </span>
+          <button onClick={() => setAllVisibleFeatures(true)}>
+            <Check size={14} /> {copy(language, "Selecionar tudo", "Select all")}
+          </button>
+          <button onClick={() => setAllVisibleFeatures(false)}>
+            <X size={14} /> {copy(language, "Limpar", "Clear")}
+          </button>
+        </div>
+        <div className="feature-grid">
+          {availableFeatures.map((feature) => {
+            const exact =
+              platform === "java" &&
+              seedEngineStatus === "active" &&
+              (typeof feature.cubiomesType === "number" || feature.id === "stronghold");
+            const label = seedFeatureLabel(feature, language);
+            const visibleAtCurrentZoom =
+              feature.id === "biomes" ||
+              feature.id === "spawn" ||
+              visibleMarkerFeatureIds.has(feature.id);
+            return (
+              <button
+                key={feature.id}
+                className={[
+                  "feature-toggle",
+                  enabledFeatures[feature.id] ? "active" : "",
+                  enabledFeatures[feature.id] && !visibleAtCurrentZoom ? "zoom-muted" : ""
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                onClick={() => setFeature(feature.id, !enabledFeatures[feature.id])}
+                title={
+                  enabledFeatures[feature.id] && !visibleAtCurrentZoom
+                    ? `${label} - ${copy(language, "aproxime para ver", "zoom in to show")}`
+                    : exact
+                      ? `${label} - Cubiomes`
+                      : `${label} - ${copy(language, "estimado", "estimated")}`
+                }
+              >
+                <img className="feature-icon" src={seedFeatureIconDataUrl(feature)} alt="" aria-hidden="true" />
+                <span>{label}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
       <div className={mapExpanded ? "map-shell expanded" : "map-shell"}>
@@ -2539,15 +2631,15 @@ function SeedMapPage({ language }: { language: Language }) {
             if (event.key === "-") applyZoom(0.8);
             if (event.key.toLowerCase() === "r") {
               setOffset({ x: 0, z: 0 });
-              setZoom(1.4);
+              setZoom(DEFAULT_SEED_ZOOM);
             }
           }}
         />
         <div className="map-hud">
           {hover
-            ? `${hover.biome} | X ${hover.x}, Z ${hover.z} | ${Math.round(zoom * 100)}%`
+            ? `${hover.biome} | X ${hover.x}, Z ${hover.z} | ${scaleLabel}`
             : copy(language, "Passe o mouse no mapa", "Hover the map")}
-          <span>{engineLabel}</span>
+          <span>{layerLabel ? `${engineLabel} | ${layerLabel}` : engineLabel}</span>
         </div>
         {markerTooltip && (
           <SeedMarkerTooltip
@@ -2651,6 +2743,7 @@ function biomeForSeedCell({
   version,
   platform,
   dimension,
+  biomeLayer,
   chunkX,
   chunkZ
 }: {
@@ -2659,11 +2752,12 @@ function biomeForSeedCell({
   version: string;
   platform: SeedPlatform;
   dimension: SeedDimension;
+  biomeLayer: SeedBiomeLayer;
   chunkX: number;
   chunkZ: number;
 }): SeedMapBiome {
   if (cubiomes) {
-    const y = dimension === "overworld" ? 63 : 64;
+    const y = dimension === "overworld" ? seedBiomeLayerY(biomeLayer) : 64;
     const biome: CubiomesBiome = cubiomes.biomeAt(chunkX * 16, chunkZ * 16, y);
     return {
       id: String(biome.id),
@@ -2672,11 +2766,28 @@ function biomeForSeedCell({
       color: biome.color
     };
   }
-  return fallbackBiomeAt(seed, version, platform, dimension, chunkX, chunkZ);
+  return fallbackBiomeAt(seed, version, platform, dimension, biomeLayer, chunkX, chunkZ);
+}
+
+function pixelsPerBlockToZoom(pixelsPerBlock: number) {
+  return (pixelsPerBlock * SEED_CHUNK_BLOCKS) / SEED_TILE_SIZE;
+}
+
+function seedPixelsPerBlock(zoom: number) {
+  return (SEED_TILE_SIZE * zoom) / SEED_CHUNK_BLOCKS;
 }
 
 function clampSeedZoom(value: number) {
   return Math.max(MIN_SEED_ZOOM, Math.min(MAX_SEED_ZOOM, value));
+}
+
+function seedScaleLabel(pixelsPerBlock: number, language: Language) {
+  if (pixelsPerBlock < 1) {
+    const metersPerPixel = Math.round(1 / pixelsPerBlock);
+    return copy(language, `1 px = ${metersPerPixel} m`, `1 px = ${metersPerPixel} m`);
+  }
+  const rounded = Math.round(pixelsPerBlock * 10) / 10;
+  return copy(language, `${rounded} px = 1 m`, `${rounded} px = 1 m`);
 }
 
 function drawSlimeChunk(ctx: CanvasRenderingContext2D, px: number, py: number, tile: number) {
