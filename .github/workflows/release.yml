@@ -25,11 +25,23 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Build app
-        run: npm run build
+      - name: Build development installer
+        run: npm run dist
 
-      - name: Build installer
-        run: npx electron-builder --win nsis --publish never
+      - name: Keep development installer
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          Rename-Item "release\Every-Helper-for-Minecraft-Setup-$version.exe" "Every-Helper-for-Minecraft-Development-Setup-$version.exe"
+
+      - name: Build stable installer
+        run: npm run dist:stable
+
+      - name: Keep stable installer
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          Rename-Item "release\Every-Helper-for-Minecraft-Setup-$version.exe" "Every-Helper-for-Minecraft-Stable-Setup-$version.exe"
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2

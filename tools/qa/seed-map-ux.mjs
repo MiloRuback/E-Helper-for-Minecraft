@@ -209,6 +209,11 @@ try {
   const tooltipText = await page.locator(".seed-marker-tooltip").innerText();
   assert(/X\s+-?\d+/i.test(tooltipText) && /Z\s+-?\d+/i.test(tooltipText), "Marker tooltip does not show coordinates.");
   assert(/Visitado|Visited/i.test(tooltipText), "Marker tooltip does not show visited checkbox.");
+  const tooltipBox = await page.locator(".seed-marker-tooltip").boundingBox();
+  assert(Boolean(tooltipBox), "Marker tooltip bounding box was unavailable.");
+  await page.mouse.move(tooltipBox.x + tooltipBox.width / 2, tooltipBox.y + tooltipBox.height - 16);
+  await page.waitForTimeout(460);
+  assert(await page.locator(".seed-marker-tooltip").isVisible(), "Marker tooltip closed before the visited checkbox could be clicked.");
   const averageBeforeVisited = await markerAverage(page, markerProbe);
   await page.locator(".seed-visited-toggle input").check();
   await page.waitForTimeout(250);

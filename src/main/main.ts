@@ -42,7 +42,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
 const REGION_SECTOR_BYTES = 4096;
 const REGION_CHUNK_COUNT = 1024;
-const MAX_SAMPLED_CHUNKS_PER_REGION = 24;
+const MAX_SAMPLED_CHUNKS_PER_REGION = 48;
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -53,10 +53,13 @@ interface ChunkLocation {
 }
 
 interface ChunkSample {
+  localX: number;
+  localZ: number;
   averageHeight?: number;
   minHeight?: number;
   maxHeight?: number;
   biomes: string[];
+  structures: string[];
 }
 
 interface RegionAnalysis {
@@ -69,6 +72,11 @@ interface RegionAnalysis {
     id: string;
     count: number;
   }>;
+  topStructures?: Array<{
+    id: string;
+    count: number;
+  }>;
+  samples: ChunkSample[];
 }
 
 type PrismarineNbtParser = {
@@ -529,7 +537,17 @@ async function scanDimension(
       minHeight: analysis.minHeight,
       maxHeight: analysis.maxHeight,
       averageHeight: analysis.averageHeight,
-      topBiomes: analysis.topBiomes
+      topBiomes: analysis.topBiomes,
+      topStructures: analysis.topStructures,
+      samples: analysis.samples.map((sample) => ({
+        chunkX: Number(match[1]) * 32 + sample.localX,
+        chunkZ: Number(match[2]) * 32 + sample.localZ,
+        minHeight: sample.minHeight,
+        maxHeight: sample.maxHeight,
+        averageHeight: sample.averageHeight,
+        biome: sample.biomes[0],
+        structures: sample.structures
+      }))
     });
   }
 
@@ -560,15 +578,21 @@ async function analyzeRegionFile(filePath: string): Promise<RegionAnalysis> {
 
     const heightValues: number[] = [];
     const biomeCounts = new Map<string, number>();
+    const structureCounts = new Map<string, number>();
+    const samples: ChunkSample[] = [];
     let sampledChunks = 0;
 
     for (const location of spreadSample(locations, MAX_SAMPLED_CHUNKS_PER_REGION)) {
       const sample = await readChunkSample(handle, location);
       if (!sample) continue;
       sampledChunks += 1;
+      samples.push(sample);
       if (sample.averageHeight !== undefined) heightValues.push(sample.averageHeight);
       sample.biomes.forEach((biome) => {
         biomeCounts.set(biome, (biomeCounts.get(biome) ?? 0) + 1);
+      });
+      sample.structures.forEach((structure) => {
+        structureCounts.set(structure, (structureCounts.get(structure) ?? 0) + 1);
       });
     }
 
@@ -589,7 +613,12 @@ async function analyzeRegionFile(filePath: string): Promise<RegionAnalysis> {
       topBiomes: Array.from(biomeCounts.entries())
         .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
         .slice(0, 3)
-        .map(([id, count]) => ({ id, count }))
+        .map(([id, count]) => ({ id, count })),
+      topStructures: Array.from(structureCounts.entries())
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .slice(0, 5)
+        .map(([id, count]) => ({ id, count })),
+      samples
     };
   } finally {
     await handle.close();
@@ -631,10 +660,13 @@ async function readChunkSample(
     const heightStats = extractHeightStats(chunk);
 
     return {
+      localX: location.index % 32,
+      localZ: Math.floor(location.index / 32),
       averageHeight: heightStats.average,
       minHeight: heightStats.min,
       maxHeight: heightStats.max,
-      biomes: extractBiomeNames(chunk)
+      biomes: extractBiomeNames(chunk),
+      structures: extractStructureNames(chunk)
     };
   } catch {
     return null;
@@ -752,6 +784,42 @@ function extractBiomeNames(chunk: Record<string, unknown>) {
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .slice(0, 4)
     .map(([biome]) => biome);
+}
+
+function extractStructureNames(chunk: Record<string, unknown>) {
+  const names = new Set<string>();
+  const structures = asRecord(chunk.structures ?? chunk.Structures);
+  const starts = asRecord(structures.starts ?? structures.Starts);
+
+  Object.entries(starts).forEach(([key, value]) => {
+    const record = asRecord(value);
+    const rawId =
+      valueAsString(record.id) ??
+      valueAsString(record.Id) ??
+      key;
+    const id = normalizeStructureId(rawId);
+    if (id && id !== "invalid" && id !== "minecraft:invalid") {
+      names.add(id);
+    }
+  });
+
+  return Array.from(names).sort();
+}
+
+function normalizeStructureId(value: string) {
+  const clean = value.trim();
+  if (!clean) return "";
+  const legacy: Record<string, string> = {
+    Village: "minecraft:village",
+    Mineshaft: "minecraft:mineshaft",
+    Mansion: "minecraft:mansion",
+    Monument: "minecraft:ocean_monument",
+    Stronghold: "minecraft:stronghold",
+    Temple: "minecraft:temple",
+    Fortress: "minecraft:fortress",
+    EndCity: "minecraft:end_city"
+  };
+  return legacy[clean] ?? clean;
 }
 
 function biomeNameFromValue(value: unknown): string | null {

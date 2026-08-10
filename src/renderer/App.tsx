@@ -56,6 +56,8 @@ import {
   type CubiomesBiome,
   type CubiomesEngine
 } from "./cubiomesEngine";
+import alexOriginalSkinUrl from "../../assets/skins/alex-original.png";
+import steveOriginalSkinUrl from "../../assets/skins/steve-original.png";
 import {
   estimatedMarkersInChunkBounds,
   fallbackBiomeAt,
@@ -171,6 +173,15 @@ interface CloudConfig {
 interface CloudUser {
   id: string;
   email: string;
+}
+
+interface CloudSkin {
+  id: string;
+  name: string;
+  skin_data: string;
+  model_type: SkinModel;
+  created_at: string;
+  updated_at: string;
 }
 
 interface SavedModpack {
@@ -395,6 +406,10 @@ const navOrder: PageId[] = [
   "settings"
 ];
 
+const appChannel =
+  import.meta.env.VITE_APP_CHANNEL === "stable" ? "stable" : "development";
+const stableHiddenPages = new Set<PageId>(["blueprints", "modpacks"]);
+
 function t(language: Language, key: keyof (typeof translations)["pt-br"]) {
   return translations[language][key] ?? translations["pt-br"][key];
 }
@@ -497,6 +512,59 @@ function makeSkinTemplate(model: SkinModel): SkinState {
   paintRect(overlay, 40, 16, 8, 4, "rgba(255,255,255,0.12)");
 
   return { base, overlay, model };
+}
+
+function skinTemplateUrl(model: SkinModel) {
+  return model === "standard" ? steveOriginalSkinUrl : alexOriginalSkinUrl;
+}
+
+function skinStateFromImageUrl(url: string, model: SkinModel): Promise<SkinState> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => resolve(skinStateFromImage(image, model));
+    image.onerror = () => reject(new Error("Nao foi possivel carregar a skin."));
+    image.src = url;
+  });
+}
+
+function skinStateFromImage(image: HTMLImageElement, model: SkinModel): SkinState {
+  const canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 64;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return makeSkinTemplate(model);
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0, 0, 64, 64);
+  const sourceHeight = image.naturalHeight || image.height;
+  ctx.drawImage(image, 0, 0, 64, sourceHeight <= 32 ? 32 : 64);
+  if (sourceHeight <= 32) upgradeLegacySkinCanvas(ctx);
+
+  const data = ctx.getImageData(0, 0, 64, 64).data;
+  const base = makeTransparentPixels();
+  for (let i = 0; i < 64 * 64; i += 1) {
+    const alpha = data[i * 4 + 3];
+    base[i] =
+      alpha === 0
+        ? "transparent"
+        : `rgba(${data[i * 4]},${data[i * 4 + 1]},${data[i * 4 + 2]},${(
+            alpha / 255
+          ).toFixed(3)})`;
+  }
+  return { base, overlay: makeTransparentPixels(), model };
+}
+
+function upgradeLegacySkinCanvas(ctx: CanvasRenderingContext2D) {
+  const source = document.createElement("canvas");
+  source.width = 64;
+  source.height = 64;
+  const sourceContext = source.getContext("2d");
+  if (!sourceContext) return;
+  sourceContext.imageSmoothingEnabled = false;
+  sourceContext.drawImage(ctx.canvas, 0, 0);
+
+  ctx.drawImage(source, 0, 16, 16, 16, 16, 48, 16, 16);
+  ctx.drawImage(source, 40, 16, 16, 16, 32, 48, 16, 16);
 }
 
 function paintRect(
@@ -673,6 +741,11 @@ function App() {
 
   const language = settings.language;
   const supabase = useMemo(() => createSupabase(cloudConfig), [cloudConfig]);
+  const visibleNavOrder = useMemo(
+    () =>
+      navOrder.filter((item) => appChannel === "development" || !stableHiddenPages.has(item)),
+    []
+  );
 
   useEffect(() => {
     if (cloudConfig.supabaseUrl === DEFAULT_SUPABASE_URL && !cloudConfig.supabaseAnonKey.trim()) {
@@ -693,7 +766,26 @@ function App() {
         });
       }
     });
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCloudUser(
+        session?.user
+          ? {
+              id: session.user.id,
+              email: session.user.email ?? ""
+            }
+          : null
+      );
+    });
+    return () => subscription.unsubscribe();
   }, [supabase, setCloudUser]);
+
+  useEffect(() => {
+    if (!visibleNavOrder.includes(page)) {
+      setPage("home");
+    }
+  }, [page, visibleNavOrder]);
 
   return (
     <div className="app-shell">
@@ -708,7 +800,7 @@ function App() {
             </div>
           </div>
           <nav className="nav-list">
-            {navOrder.map((item) => (
+            {visibleNavOrder.map((item) => (
               <button
                 key={item}
                 className={page === item ? "active" : ""}
@@ -733,9 +825,16 @@ function App() {
               account={account}
               settings={settings}
               setPage={setPage}
+              visiblePages={visibleNavOrder}
             />
           )}
-          {page === "skins" && <SkinEditor language={language} />}
+          {page === "skins" && (
+            <SkinEditor
+              language={language}
+              supabase={supabase}
+              cloudUser={cloudUser}
+            />
+          )}
           {page === "blueprints" && <BlueprintEditor language={language} />}
           {page === "seed" && <SeedMapPage language={language} />}
           {page === "world" && <WorldImporter language={language} />}
@@ -823,13 +922,16 @@ function HomePage({
   language,
   account,
   settings,
-  setPage
+  setPage,
+  visiblePages
 }: {
   language: Language;
   account: LocalAccount | null;
   settings: AppSettings;
   setPage: (page: PageId) => void;
+  visiblePages: PageId[];
 }) {
+  const visiblePageSet = new Set(visiblePages);
   const modules = [
     {
       id: "skins" as PageId,
@@ -879,7 +981,7 @@ function HomePage({
           ? "Perfil local com bio, pronomes e avatar pela API publica do Minecraft."
           : "Local profile with bio, pronouns and avatar from the public Minecraft API."
     }
-  ];
+  ].filter((module) => visiblePageSet.has(module.id));
 
   return (
     <section className="page-grid">
@@ -889,8 +991,8 @@ function HomePage({
           <h1>Every Helper for Minecraft</h1>
           <p>
             {language === "pt-br"
-              ? "Uma versao desktop para apresentacao escolar, pensada para rodar offline em Windows e em janelas pequenas sem quebrar o layout."
-              : "A desktop version for school presentation, designed to run offline on Windows and in small windows without breaking the layout."}
+              ? "Uma central desktop para criar, explorar e sincronizar dados de Minecraft com fluxo local primeiro e integracoes opcionais."
+              : "A desktop hub to create, explore and sync Minecraft data with a local-first workflow and optional integrations."}
           </p>
         </div>
         <div className="status-panel">
@@ -905,7 +1007,7 @@ function HomePage({
       </div>
 
       <div className="metric-strip">
-        <Metric label={copy(language, "Modulos", "Modules")} value="7" />
+        <Metric label={copy(language, "Modulos", "Modules")} value={String(modules.length)} />
         <Metric label={copy(language, "Idiomas", "Languages")} value="PT/EN" />
         <Metric label={copy(language, "Janela minima", "Minimum window")} value="800x500" />
         <Metric label={copy(language, "Instalador", "Installer")} value="NSIS" />
@@ -1078,7 +1180,15 @@ function Toggle({
   );
 }
 
-function SkinEditor({ language }: { language: Language }) {
+function SkinEditor({
+  language,
+  supabase,
+  cloudUser
+}: {
+  language: Language;
+  supabase: SupabaseClient | null;
+  cloudUser: CloudUser | null;
+}) {
   const [skin, setSkin] = usePersistentState<SkinState>(
     "ehm:skin",
     makeSkinTemplate("standard")
@@ -1093,8 +1203,14 @@ function SkinEditor({ language }: { language: Language }) {
   const [history, setHistory] = useState<SkinState[]>([skin]);
   const [historyIndex, setHistoryIndex] = useState(0);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [cloudSkins, setCloudSkins] = useState<CloudSkin[]>([]);
+  const [cloudLoading, setCloudLoading] = useState(false);
+  const [cloudStatus, setCloudStatus] = useState("");
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const hadSavedSkinRef = useRef(localStorage.getItem("ehm:skin") !== null);
+  const hasEditedRef = useRef(false);
+  const lastCloudSnapshotRef = useRef("");
 
   const mergedUrl = useMemo(
     () => canvasFromSkin(skin, showOverlay).toDataURL("image/png"),
@@ -1130,7 +1246,25 @@ function SkinEditor({ language }: { language: Language }) {
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  function commit(next: SkinState) {
+  useEffect(() => {
+    if (hadSavedSkinRef.current) return;
+    loadTemplate("standard", false);
+  }, []);
+
+  useEffect(() => {
+    loadCloudSkins();
+  }, [supabase, cloudUser?.id]);
+
+  useEffect(() => {
+    if (!supabase || !cloudUser || !hasEditedRef.current) return;
+    const handle = window.setTimeout(() => {
+      void saveSkinToCloud(undefined, true);
+    }, 2200);
+    return () => window.clearTimeout(handle);
+  }, [skin, supabase, cloudUser?.id]);
+
+  function commit(next: SkinState, markEdited = true) {
+    if (markEdited) hasEditedRef.current = true;
     setSkin(next);
     setHistory((current) => {
       const trimmed = current.slice(0, historyIndex + 1);
@@ -1138,6 +1272,128 @@ function SkinEditor({ language }: { language: Language }) {
       setHistoryIndex(updated.length - 1);
       return updated;
     });
+  }
+
+  async function currentSupabaseUser() {
+    if (!supabase) return null;
+    const { data } = await supabase.auth.getUser();
+    return data.user;
+  }
+
+  async function loadCloudSkins() {
+    if (!supabase) {
+      setCloudSkins([]);
+      setCloudStatus(copy(language, "Configure o Supabase para usar a biblioteca.", "Configure Supabase to use the library."));
+      return;
+    }
+    const user = await currentSupabaseUser();
+    if (!user) {
+      setCloudSkins([]);
+      setCloudStatus(copy(language, "Entre no Perfil para sincronizar skins.", "Sign in on Profile to sync skins."));
+      return;
+    }
+    setCloudLoading(true);
+    const { data, error } = await supabase
+      .from("user_skins")
+      .select("id,name,skin_data,model_type,created_at,updated_at")
+      .eq("user_id", user.id)
+      .order("updated_at", { ascending: false })
+      .limit(12);
+    setCloudLoading(false);
+    if (error) {
+      setCloudStatus(error.message);
+      return;
+    }
+    setCloudSkins((data ?? []) as CloudSkin[]);
+    setCloudStatus(
+      (data ?? []).length
+        ? copy(language, "Biblioteca carregada da nuvem.", "Cloud library loaded.")
+        : copy(language, "Nenhuma skin salva na nuvem ainda.", "No cloud skins saved yet.")
+    );
+  }
+
+  async function saveSkinToCloud(name?: string, silent = false) {
+    if (!supabase) {
+      setCloudStatus(copy(language, "Supabase nao configurado.", "Supabase is not configured."));
+      return;
+    }
+    const user = await currentSupabaseUser();
+    if (!user) {
+      setCloudStatus(copy(language, "Faca login no Perfil antes de salvar na nuvem.", "Sign in on Profile before cloud save."));
+      return;
+    }
+
+    const snapshot = canvasFromSkin(skin, true).toDataURL("image/png");
+    if (silent && snapshot === lastCloudSnapshotRef.current) return;
+    if (!silent) setCloudStatus(copy(language, "Salvando skin na nuvem...", "Saving skin to cloud..."));
+
+    await supabase.from("profiles").upsert({
+      id: user.id,
+      display_name: user.email?.split("@")[0] ?? "Player"
+    });
+
+    const { error } = await supabase.from("user_skins").insert({
+      user_id: user.id,
+      name:
+        name ??
+        `${skin.model === "slim" ? "Alex" : "Steve"} ${new Intl.DateTimeFormat("pt-BR", {
+          day: "2-digit",
+          month: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit"
+        }).format(new Date())}`,
+      skin_data: snapshot,
+      model_type: skin.model
+    });
+    if (error) {
+      setCloudStatus(error.message);
+      return;
+    }
+
+    lastCloudSnapshotRef.current = snapshot;
+    hasEditedRef.current = false;
+    await trimCloudSkinLibrary(user.id);
+    await loadCloudSkins();
+    setCloudStatus(
+      silent
+        ? copy(language, "Ultima edicao salva na nuvem.", "Latest edit saved to cloud.")
+        : copy(language, "Skin salva na biblioteca da nuvem.", "Skin saved to cloud library.")
+    );
+  }
+
+  async function trimCloudSkinLibrary(userId: string) {
+    if (!supabase) return;
+    const { data } = await supabase
+      .from("user_skins")
+      .select("id")
+      .eq("user_id", userId)
+      .order("updated_at", { ascending: false })
+      .range(12, 100);
+    const oldIds = (data ?? []).map((item) => item.id);
+    if (oldIds.length) {
+      await supabase.from("user_skins").delete().in("id", oldIds);
+    }
+  }
+
+  async function loadCloudSkin(item: CloudSkin) {
+    try {
+      const next = await skinStateFromImageUrl(item.skin_data, item.model_type);
+      commit(next, false);
+      setCloudStatus(copy(language, "Skin carregada no editor.", "Skin loaded into editor."));
+    } catch (error) {
+      setCloudStatus(error instanceof Error ? error.message : "Nao foi possivel carregar a skin.");
+    }
+  }
+
+  async function deleteCloudSkin(item: CloudSkin) {
+    if (!supabase) return;
+    const { error } = await supabase.from("user_skins").delete().eq("id", item.id);
+    if (error) {
+      setCloudStatus(error.message);
+      return;
+    }
+    setCloudSkins((current) => current.filter((skinItem) => skinItem.id !== item.id));
+    setCloudStatus(copy(language, "Skin removida da nuvem.", "Skin removed from cloud."));
   }
 
   function undo() {
@@ -1226,25 +1482,7 @@ function SkinEditor({ language }: { language: Language }) {
     reader.onload = () => {
       const image = new Image();
       image.onload = () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = 64;
-        canvas.height = 64;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(image, 0, 0, 64, 64);
-        const data = ctx.getImageData(0, 0, 64, 64).data;
-        const imported = makeTransparentPixels();
-        for (let i = 0; i < 64 * 64; i += 1) {
-          const alpha = data[i * 4 + 3];
-          imported[i] =
-            alpha === 0
-              ? "transparent"
-              : `rgba(${data[i * 4]},${data[i * 4 + 1]},${data[i * 4 + 2]},${(
-                  alpha / 255
-                ).toFixed(3)})`;
-        }
-        commit({ base: imported, overlay: makeTransparentPixels(), model: skin.model });
+        commit(skinStateFromImage(image, skin.model));
       };
       image.src = String(reader.result);
     };
@@ -1260,9 +1498,22 @@ function SkinEditor({ language }: { language: Language }) {
     link.click();
   }
 
+  async function loadTemplate(model: SkinModel, markEdited = true) {
+    try {
+      const next = await skinStateFromImageUrl(skinTemplateUrl(model), model);
+      commit(next, markEdited);
+      setCloudStatus(
+        model === "standard"
+          ? copy(language, "Steve original carregado.", "Original Steve loaded.")
+          : copy(language, "Alex original carregada.", "Original Alex loaded.")
+      );
+    } catch {
+      commit(makeSkinTemplate(model), markEdited);
+    }
+  }
+
   function resetTemplate(model: SkinModel) {
-    const next = makeSkinTemplate(model);
-    commit(next);
+    void loadTemplate(model);
   }
 
   return (
@@ -1405,6 +1656,9 @@ function SkinEditor({ language }: { language: Language }) {
           <button className="text-button" onClick={exportSkin}>
             <Download size={16} /> {copy(language, "Exportar PNG", "Export PNG")}
           </button>
+          <button className="text-button" onClick={() => void saveSkinToCloud()}>
+            <Save size={16} /> {copy(language, "Salvar na nuvem", "Save to cloud")}
+          </button>
         </div>
 
         <div className="skin-canvas-panel">
@@ -1421,6 +1675,53 @@ function SkinEditor({ language }: { language: Language }) {
         </div>
 
         <SkinPreview skinUrl={mergedUrl} model={skin.model} language={language} />
+      </div>
+
+      <div className="skin-library-panel">
+        <div className="feature-panel-header">
+          <strong>{copy(language, "Biblioteca de skins", "Skin library")}</strong>
+          <span>
+            {cloudLoading
+              ? copy(language, "carregando", "loading")
+              : `${cloudSkins.length} ${copy(language, "na nuvem", "in cloud")}`}
+          </span>
+          <button onClick={() => void loadCloudSkins()}>
+            <Search size={14} /> {copy(language, "Atualizar", "Refresh")}
+          </button>
+          <button onClick={() => void saveSkinToCloud()}>
+            <Save size={14} /> {copy(language, "Salvar agora", "Save now")}
+          </button>
+        </div>
+        <p className="muted">{cloudStatus}</p>
+        {cloudSkins.length ? (
+          <div className="skin-library-grid">
+            {cloudSkins.map((item) => (
+              <article key={item.id} className="skin-library-card">
+                <img src={item.skin_data} alt="" aria-hidden="true" />
+                <div>
+                  <strong>{item.name}</strong>
+                  <span>
+                    {item.model_type === "slim" ? "Alex" : "Steve"} | {readableDate(item.updated_at)}
+                  </span>
+                </div>
+                <button onClick={() => void loadCloudSkin(item)}>
+                  <Download size={14} /> {copy(language, "Carregar", "Load")}
+                </button>
+                <button onClick={() => void deleteCloudSkin(item)} title={copy(language, "Excluir", "Delete")}>
+                  <Trash2 size={14} />
+                </button>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="empty-inline">
+            {copy(
+              language,
+              "As ultimas skins editadas aparecem aqui apos login e salvamento no Supabase.",
+              "Recently edited skins appear here after sign-in and Supabase save."
+            )}
+          </div>
+        )}
       </div>
     </section>
   );
@@ -1956,6 +2257,8 @@ function SeedMapPage({ language }: { language: Language }) {
   const pendingOffsetRef = useRef(offset);
   const pendingZoomRef = useRef(zoom);
   const offsetFrameRef = useRef<number | null>(null);
+  const markerTooltipCloseRef = useRef<number | null>(null);
+  const markerTooltipHoverRef = useRef(false);
 
   const availableFeatures = useMemo(
     () => seedFeatureCatalog.filter((feature) => feature.dimensions.includes(dimension)),
@@ -2088,6 +2391,9 @@ function SeedMapPage({ language }: { language: Language }) {
     () => () => {
       if (offsetFrameRef.current !== null) {
         cancelAnimationFrame(offsetFrameRef.current);
+      }
+      if (markerTooltipCloseRef.current !== null) {
+        window.clearTimeout(markerTooltipCloseRef.current);
       }
     },
     []
@@ -2333,6 +2639,33 @@ function SeedMapPage({ language }: { language: Language }) {
     queueViewport(pendingZoomRef.current, nextOffset);
   }
 
+  function clearMarkerTooltipClose() {
+    if (markerTooltipCloseRef.current !== null) {
+      window.clearTimeout(markerTooltipCloseRef.current);
+      markerTooltipCloseRef.current = null;
+    }
+  }
+
+  function scheduleMarkerTooltipClose() {
+    if (markerTooltipHoverRef.current) return;
+    if (markerTooltipCloseRef.current !== null) return;
+    markerTooltipCloseRef.current = window.setTimeout(() => {
+      markerTooltipCloseRef.current = null;
+      if (markerTooltipHoverRef.current) return;
+      setMarkerTooltip(null);
+    }, 900);
+  }
+
+  function keepMarkerTooltipOpen() {
+    markerTooltipHoverRef.current = true;
+    clearMarkerTooltipClose();
+  }
+
+  function releaseMarkerTooltip() {
+    markerTooltipHoverRef.current = false;
+    scheduleMarkerTooltipClose();
+  }
+
   function mapCoordinates(event: ReactMouseEvent<HTMLCanvasElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
     const tile = SEED_TILE_SIZE * zoom;
@@ -2342,13 +2675,15 @@ function SeedMapPage({ language }: { language: Language }) {
     const chunkZ = Math.floor((localY - rect.height / 2 - offset.z) / tile);
     const markerHit = findMarkerHit(markerHitZonesRef.current, localX, localY);
     if (markerHit) {
+      clearMarkerTooltipClose();
+      markerTooltipHoverRef.current = false;
       setMarkerTooltip({
         marker: markerHit.marker,
         x: Math.min(Math.max(localX + 14, 8), Math.max(8, rect.width - 250)),
         y: Math.min(Math.max(localY + 14, 8), Math.max(8, rect.height - 142))
       });
     } else {
-      setMarkerTooltip(null);
+      scheduleMarkerTooltipClose();
     }
     if (javaEngineActive && cubiomes) {
       cubiomes.configure(seed, version, dimension);
@@ -2599,6 +2934,7 @@ function SeedMapPage({ language }: { language: Language }) {
           className="seed-canvas"
           tabIndex={0}
           onMouseMove={mapCoordinates}
+          onMouseLeave={scheduleMarkerTooltipClose}
           onPointerDown={(event) => {
             dragRef.current = {
               x: event.clientX,
@@ -2647,6 +2983,8 @@ function SeedMapPage({ language }: { language: Language }) {
             tooltip={markerTooltip}
             visited={Boolean(visitedMarkers[seedMarkerKey(markerTooltip.marker)])}
             onVisitedChange={() => toggleVisitedMarker(markerTooltip.marker)}
+            onEnter={keepMarkerTooltipOpen}
+            onLeave={releaseMarkerTooltip}
           />
         )}
       </div>
@@ -2676,12 +3014,16 @@ function SeedMarkerTooltip({
   language,
   tooltip,
   visited,
-  onVisitedChange
+  onVisitedChange,
+  onEnter,
+  onLeave
 }: {
   language: Language;
   tooltip: MarkerTooltipState;
   visited: boolean;
   onVisitedChange: () => void;
+  onEnter: () => void;
+  onLeave: () => void;
 }) {
   const feature = featureById(tooltip.marker.featureId);
   const label = feature ? seedFeatureLabel(feature, language) : tooltip.marker.label;
@@ -2696,6 +3038,8 @@ function SeedMarkerTooltip({
     <div
       className="seed-marker-tooltip"
       style={{ left: tooltip.x, top: tooltip.y }}
+      onPointerEnter={onEnter}
+      onPointerLeave={onLeave}
       onPointerDown={(event) => event.stopPropagation()}
       onMouseMove={(event) => event.stopPropagation()}
     >
@@ -2961,7 +3305,18 @@ function WorldImporter({ language }: { language: Language }) {
               ))}
             </div>
           </div>
-          <RegionMap dimension={dimension} selectedRegion={selectedRegion} />
+          <RegionMap
+            language={language}
+            dimension={dimension}
+            selectedRegion={selectedRegion}
+            spawn={world.spawn}
+            onSelectRegion={(region) =>
+              setTarget({
+                x: region.x * 512 + 256,
+                z: region.z * 512 + 256
+              })
+            }
+          />
           <div className="tool-panel">
             <h3>{copy(language, "Regiao alvo", "Target region")}</h3>
             {selectedRegion ? (
@@ -2994,6 +3349,16 @@ function WorldImporter({ language }: { language: Language }) {
                   }
                 />
                 <Stat label={copy(language, "Alterado", "Modified")} value={readableDate(selectedRegion.lastModified)} />
+                <Stat
+                  label={copy(language, "Estruturas", "Structures")}
+                  value={
+                    selectedRegion.topStructures?.length
+                      ? selectedRegion.topStructures
+                          .map((item) => `${formatStructureName(item.id)} (${item.count})`)
+                          .join(", ")
+                      : copy(language, "Nenhuma amostrada", "None sampled")
+                  }
+                />
               </>
             ) : (
               <p className="muted">
@@ -3008,13 +3373,21 @@ function WorldImporter({ language }: { language: Language }) {
 }
 
 function RegionMap({
+  language,
   dimension,
-  selectedRegion
+  selectedRegion,
+  spawn,
+  onSelectRegion
 }: {
+  language: Language;
   dimension?: DimensionSummary;
   selectedRegion?: RegionSummary;
+  spawn?: WorldSummary["spawn"];
+  onSelectRegion: (region: RegionSummary) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [hoveredRegion, setHoveredRegion] = useState<RegionSummary | null>(null);
+  const layoutRef = useRef<WorldMapLayout | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -3044,6 +3417,7 @@ function RegionMap({
     const cell = Math.min(rect.width / cols, rect.height / rows) * 0.82;
     const originX = (rect.width - cols * cell) / 2;
     const originZ = (rect.height - rows * cell) / 2;
+    layoutRef.current = { minX, minZ, cell, originX, originZ };
 
     dimension.regions.forEach((region) => {
       const x = originX + (region.x - minX) * cell;
@@ -3056,15 +3430,135 @@ function RegionMap({
         ctx.fillStyle = `rgba(255, 255, 255, ${0.08 + relief * 0.22})`;
         ctx.fillRect(x + 2, z + 2, cell - 4, Math.max(2, (cell - 4) * relief));
       }
+      drawRegionSamples(ctx, region, x, z, cell);
       if (selectedRegion && selectedRegion.x === region.x && selectedRegion.z === region.z) {
         ctx.strokeStyle = "#f2c94c";
         ctx.lineWidth = 3;
         ctx.strokeRect(x + 2, z + 2, cell - 4, cell - 4);
       }
+      if (hoveredRegion && hoveredRegion.x === region.x && hoveredRegion.z === region.z) {
+        ctx.strokeStyle = "#4ecca3";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x + 5, z + 5, cell - 10, cell - 10);
+      }
     });
-  }, [dimension, selectedRegion]);
 
-  return <canvas className="region-map" ref={canvasRef} />;
+    if (dimension.key === "overworld" && spawn?.x !== undefined && spawn.z !== undefined) {
+      const spawnRegionX = Math.floor(spawn.x / 512);
+      const spawnRegionZ = Math.floor(spawn.z / 512);
+      if (
+        spawnRegionX >= minX &&
+        spawnRegionX <= maxX &&
+        spawnRegionZ >= minZ &&
+        spawnRegionZ <= maxZ
+      ) {
+        const x = originX + (spawn.x / 512 - minX) * cell;
+        const z = originZ + (spawn.z / 512 - minZ) * cell;
+        ctx.fillStyle = "#f6f1a4";
+        ctx.strokeStyle = "#07111c";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x, z, Math.max(5, Math.min(9, cell * 0.08)), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+    }
+  }, [dimension, hoveredRegion, selectedRegion, spawn]);
+
+  function regionAtEvent(event: ReactMouseEvent<HTMLCanvasElement>) {
+    if (!dimension || !layoutRef.current) return null;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const localX = event.clientX - rect.left;
+    const localY = event.clientY - rect.top;
+    const { minX, minZ, cell, originX, originZ } = layoutRef.current;
+    const regionX = Math.floor((localX - originX) / cell) + minX;
+    const regionZ = Math.floor((localY - originZ) / cell) + minZ;
+    return dimension.regions.find((region) => region.x === regionX && region.z === regionZ) ?? null;
+  }
+
+  const totalStructures = dimension?.regions.reduce(
+    (sum, region) =>
+      sum + (region.topStructures ?? []).reduce((inner, item) => inner + item.count, 0),
+    0
+  );
+
+  return (
+    <div className="world-map-shell">
+      <canvas
+        className="region-map"
+        ref={canvasRef}
+        onMouseMove={(event) => setHoveredRegion(regionAtEvent(event))}
+        onMouseLeave={() => setHoveredRegion(null)}
+        onClick={(event) => {
+          const region = regionAtEvent(event);
+          if (region) onSelectRegion(region);
+        }}
+      />
+      <div className="world-map-hud">
+        {hoveredRegion
+          ? `${hoveredRegion.fileName} | ${hoveredRegion.chunks} chunks | ${formatBiomeName(hoveredRegion.topBiomes?.[0]?.id)}`
+          : dimension
+            ? `${dimension.totalChunks} chunks | ${totalStructures ?? 0} estruturas amostradas`
+            : ""}
+      </div>
+      <div className="world-map-legend">
+        <span><i className="legend-height" /> {copy(language, "relevo", "height")}</span>
+        <span><i className="legend-structure" /> {copy(language, "estrutura", "structure")}</span>
+        <span><i className="legend-spawn" /> Spawn</span>
+      </div>
+    </div>
+  );
+}
+
+type WorldMapLayout = {
+  minX: number;
+  minZ: number;
+  cell: number;
+  originX: number;
+  originZ: number;
+};
+
+function drawRegionSamples(
+  ctx: CanvasRenderingContext2D,
+  region: RegionSummary,
+  originX: number,
+  originZ: number,
+  cell: number
+) {
+  if (!region.samples?.length || cell < 16) return;
+  const sampleSize = Math.max(2, Math.min(8, cell / 12));
+  region.samples.forEach((sample) => {
+    const localX = sample.chunkX - region.x * 32;
+    const localZ = sample.chunkZ - region.z * 32;
+    const x = originX + (localX / 32) * cell;
+    const z = originZ + (localZ / 32) * cell;
+    ctx.fillStyle = chunkSampleColor(sample.biome, sample.averageHeight);
+    ctx.fillRect(x, z, sampleSize, sampleSize);
+
+    if (sample.structures?.length) {
+      ctx.fillStyle = "#f2c94c";
+      ctx.strokeStyle = "#07111c";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x + sampleSize / 2, z - 2);
+      ctx.lineTo(x + sampleSize + 2, z + sampleSize / 2);
+      ctx.lineTo(x + sampleSize / 2, z + sampleSize + 2);
+      ctx.lineTo(x - 2, z + sampleSize / 2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+  });
+}
+
+function chunkSampleColor(biome?: string, averageHeight?: number) {
+  const base = colorForBiome(biome);
+  const rgb = hexToRgb(base);
+  const height = averageHeight ?? 64;
+  const shade = Math.max(-0.28, Math.min(0.34, (height - 72) / 180));
+  const mix = (channel: number) =>
+    Math.round(Math.max(0, Math.min(255, channel + 255 * shade)));
+  return `rgb(${mix(rgb.r)}, ${mix(rgb.g)}, ${mix(rgb.b)})`;
 }
 
 function regionColor(region: RegionSummary, intensity: number) {
@@ -3111,6 +3605,23 @@ function formatBiomeName(id?: string) {
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function formatStructureName(id?: string) {
+  if (!id) return "Nao encontrada";
+  const names: Record<string, string> = {
+    "minecraft:village": "Village",
+    "minecraft:mineshaft": "Mineshaft",
+    "minecraft:mansion": "Mansion",
+    "minecraft:ocean_monument": "Ocean Monument",
+    "minecraft:stronghold": "Stronghold",
+    "minecraft:fortress": "Fortress",
+    "minecraft:bastion_remnant": "Bastion",
+    "minecraft:end_city": "End City",
+    "minecraft:ruined_portal": "Ruined Portal",
+    "minecraft:trial_chambers": "Trial Chambers"
+  };
+  return names[id] ?? formatBiomeName(id);
 }
 
 function ModpacksPage({ language }: { language: Language }) {

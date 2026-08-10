@@ -1,85 +1,117 @@
 # Every Helper for Minecraft
 
-Aplicativo desktop para Windows feito com Electron, React, TypeScript e Vite. Esta entrega transforma as duas documentacoes em uma versao executavel para apresentacao escolar, com funcionamento local/offline como padrao e pontos de integracao preparados para Supabase, Google Drive e Microsoft/Minecraft.
+Aplicativo desktop para Windows com ferramentas praticas para jogadores e criadores de Minecraft: skins, seed map, leitura de mundos, perfil em nuvem e integracoes opcionais.
 
-[Download do instalador Windows](https://github.com/MiloRuback/E-Helper-for-Minecraft/releases/latest)
+<p align="center">
+  <a href="https://github.com/MiloRuback/E-Helper-for-Minecraft/releases/latest">
+    <img alt="Download para Windows" src="https://img.shields.io/badge/Download-Windows%20Installer-4ecca3?style=for-the-badge&logo=windows&logoColor=07111c">
+  </a>
+  <a href="README.en.md">
+    <img alt="English README" src="https://img.shields.io/badge/README-English-2f83c6?style=for-the-badge">
+  </a>
+</p>
 
-[English README](README.en.md)
+![Seed Map](docs/images/seed-map.png)
 
-## O que ja vem pronto
+## Canais
 
-- Janela desktop sem borda, dark mode, layout responsivo e tamanho minimo 800x500.
-- Onboarding inicial com conta local, idioma PT-BR/EN-US e preferencias.
-- Editor de skins 64x64 com pincel, borracha, balde, conta-gotas, camadas base/overlay, simetria, undo/redo, templates Steve/Alex, importacao/exportacao PNG e preview 3D via `skinview3d`.
-- Editor de blueprints com grade por camada Y, paleta de blocos, preview 3D via Three.js, exportacao/importacao `.every-blueprint.json`, exportacao Java Structure `.nbt`, exportacao Sponge/WorldEdit `.schem`, exportacao Litematica `.litematic` e importacao de `.litematic`, `.schem` e Java Structure `.nbt`.
-- Seed Map com Cubiomes WASM, lista oficial de releases da Mojang quando online, fallback offline com 102 versoes, seed, pan, zoom, coordenadas, biomas reais e marcadores de estrutura.
-- Importador de mundos Java por pasta, leitura de `level.dat`, contagem de chunks em regioes `.mca`, amostragem de heightmaps/biomas e visualizacao por Overworld/Nether/End.
-- Gerenciador de modpacks por pasta, listagem de `.jar`, configs, resourcepacks, shaderpacks, exportacao `.zip` compartilhavel e criacao de perfil isolado no Minecraft Launcher com backup do `launcher_profiles.json`.
-- Perfil local com bio, pronomes e busca de avatar por username usando a API publica da Mojang.
-- Configuracoes, backup/restauracao local em JSON e conexoes para Supabase/Drive/Microsoft.
-- Build Windows com `electron-builder` e workflow de GitHub Releases.
+- `development`: versao completa, com Skins, Blueprints, Seed Map, Mundos, Modpacks, Perfil e Configuracoes.
+- `stable`: versao enxuta para uso final, sem as abas Blueprints e Modpacks.
+- GitHub Releases publica dois instaladores por tag: `Development` e `Stable`.
 
-## Integrações reais
+## Principais recursos
 
-- Supabase: o projeto `ctqgcnsfdvxtnkejeusd` recebeu as migrations em `supabase/migrations/`, com tabelas, RLS, indices de `user_id`, funcoes endurecidas e security advisors zerados. A URL e a publishable key ja ficam preenchidas no app.
-- Google Drive: o app usa OAuth de desktop com PKCE e escopo `drive.file`, cria a pasta `Every Helper` no Drive do usuario e faz backup/restauracao JSON.
-- Microsoft/Minecraft: o app usa OAuth Microsoft, Xbox Live, XSTS e Minecraft Services para obter UUID, username, skin e avatar quando o Client ID esta configurado.
-- GitHub: o repo correto e `MiloRuback/E-Helper-for-Minecraft`, com workflow de release para gerar o instalador `.exe`.
-- Auto-update: o app empacotado usa `electron-updater` para buscar novas versoes publicadas nas GitHub Releases.
+- Editor de skins 64x64 com pincel, borracha, balde, conta-gotas, camadas base/overlay, simetria, undo/redo, templates originais Steve/Alex, importacao/exportacao PNG e preview 3D via `skinview3d`.
+- Biblioteca de skins em nuvem: as ultimas skins salvas ficam no Supabase por usuario e podem ser carregadas novamente no editor.
+- Seed Map inspirado na experiencia do Chunkbase, com Java/Bedrock, versoes, Overworld/Nether/End, camadas Superficie/Subsolo/Abissal no Overworld, zoom de `1 px = 128 m` ate `8 px = 1 m`, filtros de estruturas e marcadores visitados.
+- Importador de mundos Java com leitura de `level.dat`, regioes `.mca`, chunks amostrados, biomas, relevo por heightmap, spawn e estruturas registradas nos chunks.
+- Perfil local/sincronizado com nome, bio, pronomes, avatar Minecraft e login Supabase.
+- Backup/restauracao JSON local e integracao opcional com Google Drive.
+- Integracao opcional Microsoft/Minecraft para buscar UUID, username, skin e avatar oficiais.
+- Build desktop com Electron, React, TypeScript, Vite e `electron-builder`.
 
-## O que precisa de credenciais publicas
+## Galeria
 
-- Supabase Auth ja vem configurado com URL e publishable key publicas; falta apenas o usuario criar/entrar com email e senha.
-- Google Drive precisa de um OAuth Client ID de tipo "Desktop app".
-- Microsoft/Minecraft precisa de um Client ID do Microsoft Entra ID/consumers com redirect loopback permitido.
+| Skins com biblioteca em nuvem | Mapa de mundo por chunks |
+| --- | --- |
+| ![Skin Library](docs/images/skin-library.png) | ![World Map](docs/images/world-map.png) |
 
-Nunca cole service role, client secret, senha ou token pessoal dentro do app.
+## Banco de dados e nuvem
 
-Veja o passo a passo em `docs/INTEGRATIONS_SETUP.md`.
+O backend em nuvem usa Supabase, que combina PostgreSQL, Auth e APIs geradas automaticamente com Row Level Security.
 
-## Limites técnicos ainda explícitos
+Modelo principal:
 
-- A importacao de blueprint cobre `.litematic`, `.schem` e Java Structure `.nbt` via `@taku128/java-schematic`; a exportacao cobre `.every-blueprint.json`, Java Structure `.nbt`, Sponge/WorldEdit `.schem` e Litematica `.litematic`. O formato legado `.schematic` classico e rejeitado pelo conversor usado.
+- `profiles`: dados editaveis do perfil do usuario, avatar e dados Minecraft.
+- `user_skins`: biblioteca cloud das skins salvas no editor. Cada registro guarda `user_id`, nome, PNG em `skin_data`, modelo (`standard` ou `slim`) e timestamps.
+- `user_settings`: preferencias sincronizaveis do app.
+- `user_worlds`, `user_blueprints`, `user_modpacks`: tabelas preparadas para dados de usuario por modulo.
 
-## Como rodar no PC
+Seguranca aplicada:
+
+- RLS habilitado em todas as tabelas expostas.
+- Policies por dono usando `auth.uid()`, impedindo que um usuario leia ou altere dados de outro.
+- Indices por `user_id` e por `user_skins(user_id, updated_at desc)` para carregar rapidamente a biblioteca de skins.
+- O cliente usa apenas publishable key. Nunca coloque service role, client secret, token pessoal ou senha em `.env`, README ou codigo do renderer.
+- `.env` fica ignorado pelo Git; use `.env.example` como modelo.
+
+## Integracoes
+
+- Supabase: login por email/senha e sincronizacao de perfil/skins.
+- Google Drive: OAuth desktop com PKCE e escopo `drive.file` para backup/restauracao JSON.
+- Microsoft/Minecraft: OAuth Microsoft, Xbox Live, XSTS e Minecraft Services quando o Client ID estiver configurado.
+- GitHub Releases: workflow Windows gera os instaladores Stable e Development.
+- Auto-update: o app empacotado usa `electron-updater` para buscar novas versoes publicadas.
+
+Veja detalhes em [docs/INTEGRATIONS_SETUP.md](docs/INTEGRATIONS_SETUP.md).
+
+## Rodar localmente
 
 ```bash
 npm install
 npm run dev
 ```
 
-## Como gerar build
+## Builds
+
+Build development:
 
 ```bash
 npm run build
-```
-
-## Como gerar o instalador `.exe`
-
-```bash
 npm run dist
 ```
 
-O instalador NSIS sai em `release/` com assistente, instalacao por usuario, opcao de pasta e atalho na area de trabalho.
-
-## Variaveis opcionais
-
-Copie `.env.example` para `.env` quando tiver credenciais reais:
+Build stable, sem Blueprints/Modpacks:
 
 ```bash
-VITE_SUPABASE_URL=https://ctqgcnsfdvxtnkejeusd.supabase.co
-VITE_SUPABASE_ANON_KEY=sb_publishable_d-LcR34jekfPRJ-pwZFVzA_gvMHMGj6
-VITE_GOOGLE_DRIVE_CLIENT_ID=
-VITE_MICROSOFT_CLIENT_ID=
+npm run build:stable
+npm run dist:stable
 ```
+
+O instalador NSIS sai em `release/`.
 
 ## Release no GitHub
 
 Crie uma tag para disparar o workflow:
 
 ```bash
-git tag v0.1.14
-git push origin v0.1.14
+git tag v0.1.18
+git push origin v0.1.18
 ```
 
-O workflow `.github/workflows/release.yml` compila no Windows e publica o `.exe` como asset da release. O repositorio esta publico para evitar 404 no link de download.
+O workflow `.github/workflows/release.yml` publica os instaladores:
+
+- `Every-Helper-for-Minecraft-Development-Setup-<versao>.exe`
+- `Every-Helper-for-Minecraft-Stable-Setup-<versao>.exe`
+
+## Validacao local
+
+QAs usadas neste projeto:
+
+```bash
+npm run build
+npm run build:stable
+node tools/qa/seed-map-ux.mjs
+node tools/qa/skin-library-ux.mjs
+node tools/qa/world-map-ux.mjs
+```

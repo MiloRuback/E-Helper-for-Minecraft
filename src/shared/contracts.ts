@@ -14,6 +14,19 @@ export interface RegionSummary {
     id: string;
     count: number;
   }>;
+  topStructures?: Array<{
+    id: string;
+    count: number;
+  }>;
+  samples?: Array<{
+    chunkX: number;
+    chunkZ: number;
+    minHeight?: number;
+    maxHeight?: number;
+    averageHeight?: number;
+    biome?: string;
+    structures?: string[];
+  }>;
 }
 
 export interface DimensionSummary {

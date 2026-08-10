@@ -1,22 +1,31 @@
 # Integracoes externas
 
-Este app funciona offline por padrao. As integracoes abaixo usam apenas IDs/chaves publicas no cliente. Nunca cole `service_role`, `client_secret`, PAT, senha ou token privado nas configuracoes do app.
+O app funciona offline por padrao. As integracoes usam somente IDs/chaves publicas de cliente no renderer. Nunca cole `service_role`, `client_secret`, PAT, senha ou token privado nas configuracoes do app, no README ou em arquivos versionados.
 
 ## Supabase
 
-Ja configurado no app:
+Uso no app:
 
-```text
-URL: https://ctqgcnsfdvxtnkejeusd.supabase.co
-Publishable key: sb_publishable_d-LcR34jekfPRJ-pwZFVzA_gvMHMGj6
-```
+- Auth por email/senha.
+- `profiles` para dados do perfil.
+- `user_skins` para a biblioteca cloud das skins recentes.
+- `user_settings` para preferencias sincronizaveis.
+- Tabelas preparadas para mundos, blueprints e modpacks.
 
-Estado verificado:
+Configuracao:
 
-- migrations aplicadas em `supabase/migrations/`;
-- RLS habilitado nas tabelas de usuario;
-- security advisors sem findings depois da migration de hardening;
-- performance advisors podem listar indices como `unused_index` enquanto as tabelas ainda estiverem sem uso real.
+1. Crie um projeto Supabase.
+2. Aplique as migrations em `supabase/migrations/`.
+3. Use apenas a URL publica do projeto e a publishable key no app.
+4. Mantenha RLS habilitado em todas as tabelas expostas.
+5. Para producao, ative protecao contra senhas vazadas no painel de Auth do Supabase.
+
+Estado esperado do banco:
+
+- RLS habilitado.
+- Policies por usuario usando `auth.uid()`.
+- Indices por `user_id`.
+- Indice de biblioteca em `user_skins(user_id, updated_at desc)`.
 
 ## Google Drive
 
@@ -52,17 +61,24 @@ O scope usado e:
 XboxLive.signin offline_access
 ```
 
-Se a Microsoft negar o uso de `XboxLive.signin`, o app ainda tem plano B via API publica da Mojang: informar o username do Minecraft para carregar UUID/avatar sem OAuth.
+Se a Microsoft negar o uso de `XboxLive.signin`, o app ainda consegue carregar UUID/avatar pela API publica da Mojang a partir do username.
 
 ## GitHub / Release
 
-O workflow `.github/workflows/release.yml` cria a release quando uma tag `v*` e enviada. A versao atual e `v0.1.14`.
+O workflow `.github/workflows/release.yml` cria releases quando uma tag `v*` e enviada. Cada release publica:
 
-O repositorio `MiloRuback/E-Helper-for-Minecraft` esta publico. O link `https://github.com/MiloRuback/E-Helper-for-Minecraft/releases/latest` foi verificado publicamente e redireciona para a release mais recente sem 404.
+- instalador Development, com todos os modulos;
+- instalador Stable, sem Blueprints e Modpacks.
 
-Tambem ha uma copia do instalador no Google Drive em `Every Helper for Minecraft - Release`:
+Comandos:
+
+```bash
+npm run dist
+npm run dist:stable
+```
+
+O link publico de download recomendado e:
 
 ```text
-Every-Helper-for-Minecraft-Setup-0.1.14.exe
-https://drive.google.com/file/d/1FLo13OxacACk6FkSMYJwN6p71qpCoNdj/view?usp=drivesdk
+https://github.com/MiloRuback/E-Helper-for-Minecraft/releases/latest
 ```

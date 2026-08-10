@@ -666,6 +666,81 @@ h3 {
   font-size: 0.86rem;
 }
 
+.skin-library-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(145, 164, 183, 0.16);
+  border-radius: 8px;
+  background: rgba(13, 18, 26, 0.72);
+}
+
+.skin-library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.skin-library-card {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid rgba(145, 164, 183, 0.16);
+  border-radius: 8px;
+  background: #101722;
+}
+
+.skin-library-card img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  border-radius: 6px;
+  background:
+    linear-gradient(45deg, #222a34 25%, transparent 25%),
+    linear-gradient(-45deg, #222a34 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #222a34 75%),
+    linear-gradient(-45deg, transparent 75%, #222a34 75%);
+  background-position: 0 0, 0 5px, 5px -5px, -5px 0;
+  background-size: 10px 10px;
+}
+
+.skin-library-card div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.skin-library-card strong,
+.skin-library-card span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.skin-library-card span {
+  color: #91a4b7;
+  font-size: 0.78rem;
+}
+
+.skin-library-card button {
+  min-height: 30px;
+  padding: 0 8px;
+  font-size: 0.78rem;
+}
+
+.empty-inline {
+  padding: 12px;
+  border: 1px dashed rgba(145, 164, 183, 0.24);
+  border-radius: 8px;
+  color: #91a4b7;
+  background: rgba(16, 23, 34, 0.68);
+}
+
 .panel-title {
   width: 100%;
   display: flex;
@@ -877,6 +952,76 @@ h3 {
 .seed-canvas {
   cursor: grab;
   touch-action: none;
+}
+
+.world-map-shell {
+  position: relative;
+  min-width: 0;
+  min-height: 520px;
+  border: 1px solid rgba(145, 164, 183, 0.16);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #101722;
+}
+
+.world-map-shell .region-map {
+  min-height: 520px;
+  border: 0;
+  cursor: crosshair;
+}
+
+.world-map-hud,
+.world-map-legend {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  border: 1px solid rgba(145, 164, 183, 0.18);
+  border-radius: 8px;
+  color: #d8e2ea;
+  background: rgba(7, 13, 22, 0.82);
+  backdrop-filter: blur(8px);
+}
+
+.world-map-hud {
+  top: 12px;
+}
+
+.world-map-legend {
+  right: auto;
+  bottom: 12px;
+  font-size: 0.8rem;
+}
+
+.world-map-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.world-map-legend i {
+  width: 12px;
+  height: 12px;
+  display: inline-block;
+  border-radius: 3px;
+}
+
+.legend-height {
+  background: linear-gradient(135deg, #315f4d, #d7bf66);
+}
+
+.legend-structure {
+  background: #f2c94c;
+  transform: rotate(45deg);
+}
+
+.legend-spawn {
+  border-radius: 50% !important;
+  background: #f6f1a4;
 }
 
 .seed-canvas:active {
@@ -1321,6 +1466,15 @@ h3 {
     grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
   }
 
+  .skin-library-card {
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
+
+  .skin-library-card button {
+    width: 100%;
+    justify-content: center;
+  }
+
   .seed-map-controls {
     order: 1;
   }
@@ -1340,8 +1494,13 @@ h3 {
   }
 
   .map-shell,
+  .world-map-shell,
   .seed-canvas,
   .region-map {
+    min-height: 420px;
+  }
+
+  .world-map-shell .region-map {
     min-height: 420px;
   }
 
