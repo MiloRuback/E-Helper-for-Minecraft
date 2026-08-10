@@ -1,6 +1,6 @@
 {
   "name": "every-helper-for-minecraft",
-  "version": "0.1.18",
+  "version": "0.1.19",
   "description": "Desktop helper for Minecraft players with skins, blueprints, seed maps, worlds, modpacks and profile tools.",
   "author": "Milo Ruback",
   "private": true,
@@ -17,7 +17,7 @@
     "build:development": "cross-env VITE_APP_CHANNEL=development npm run build",
     "build:stable": "cross-env VITE_APP_CHANNEL=stable npm run build",
     "dist:development": "cross-env VITE_APP_CHANNEL=development npm run dist",
-    "dist": "npm run build && electron-builder --win nsis",
+    "dist": "npm run build && electron-builder --win nsis --publish never",
     "dist:stable": "cross-env VITE_APP_CHANNEL=stable npm run dist",
     "dist:portable": "npm run build && electron-builder --win portable",
     "lint": "tsc --noEmit",
