@@ -356,9 +356,65 @@ function extractHeightStats(chunk: Record<string, unknown>): HeightStats {
   const heights = unpackHeightmap(packed).filter(
     (height) => Number.isFinite(height) && height > -128 && height < 1024
   );
-  if (!heights.length) return {};
+  if (!heights.length) return extractSectionHeightStats(chunk);
 
   return heightStatsFromValues(heights);
+}
+
+function extractSectionHeightStats(chunk: Record<string, unknown>): HeightStats {
+  const occupiedSectionYs = asArray(chunk.sections ?? chunk.Sections)
+    .map((section) => {
+      const sectionRecord = asRecord(section);
+      const sectionY = valueAsNumber(sectionRecord.Y ?? sectionRecord.y);
+      if (sectionY === undefined || !sectionHasTerrain(sectionRecord)) return null;
+      return sectionY;
+    })
+    .filter((sectionY): sectionY is number => sectionY !== null);
+
+  if (!occupiedSectionYs.length) return {};
+
+  const min = Math.min(...occupiedSectionYs) * 16;
+  const max = (Math.max(...occupiedSectionYs) + 1) * 16 - 1;
+  return {
+    min,
+    max,
+    average: Math.round((min + max) / 2)
+  };
+}
+
+function sectionHasTerrain(section: Record<string, unknown>) {
+  const blockStates = asRecord(section.block_states ?? section.BlockStates);
+  const palette = asArray(
+    blockStates.palette ??
+      blockStates.Palette ??
+      section.palette ??
+      section.Palette
+  );
+  if (palette.length) {
+    return palette.some((entry) => !isAirBlockName(blockNameFromPaletteEntry(entry)));
+  }
+
+  const legacyBlocks = numberArrayFromValue(section.Blocks ?? section.blocks);
+  return legacyBlocks.some((blockId) => blockId !== 0);
+}
+
+function blockNameFromPaletteEntry(value: unknown) {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return valueAsString(record.Name ?? record.name);
+  }
+  return undefined;
+}
+
+function isAirBlockName(name?: string) {
+  if (!name) return false;
+  return (
+    name === "minecraft:air" ||
+    name === "minecraft:cave_air" ||
+    name === "minecraft:void_air" ||
+    name === "air"
+  );
 }
 
 function heightStatsFromValues(heights: number[]): HeightStats {
@@ -391,19 +447,15 @@ function unpackHeightmap(values: bigint[]) {
     9,
     Math.min(16, Math.floor((values.length * 64) / 256))
   );
+  const valuesPerLong = Math.max(1, Math.floor(64 / bitsPerValue));
   const mask = (1n << BigInt(bitsPerValue)) - 1n;
   const heights: number[] = [];
 
   for (let i = 0; i < 256; i += 1) {
-    const bitIndex = i * bitsPerValue;
-    const longIndex = Math.floor(bitIndex / 64);
-    const startBit = bitIndex % 64;
+    const longIndex = Math.floor(i / valuesPerLong);
+    const startBit = (i % valuesPerLong) * bitsPerValue;
     const current = BigInt.asUintN(64, values[longIndex] ?? 0n);
-    let raw = current >> BigInt(startBit);
-    if (startBit + bitsPerValue > 64) {
-      const next = BigInt.asUintN(64, values[longIndex + 1] ?? 0n);
-      raw |= next << BigInt(64 - startBit);
-    }
+    const raw = current >> BigInt(startBit);
     heights.push(Number(raw & mask));
   }
 
@@ -413,18 +465,29 @@ function unpackHeightmap(values: bigint[]) {
 function packedLongArray(value: unknown): bigint[] {
   if (Array.isArray(value)) {
     return value
-      .map((item) => {
-        if (typeof item === "bigint") return item;
-        if (typeof item === "number" && Number.isFinite(item)) return BigInt(item);
-        if (typeof item === "string" && /^-?\d+$/.test(item)) return BigInt(item);
-        return null;
-      })
+      .map(bigIntFromValue)
       .filter((item): item is bigint => item !== null);
   }
   if (value && typeof value === "object" && "value" in value) {
     return packedLongArray((value as { value?: unknown }).value);
   }
   return [];
+}
+
+function bigIntFromValue(value: unknown): bigint | null {
+  if (typeof value === "bigint") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return BigInt(value);
+  if (typeof value === "string" && /^-?\d+n?$/.test(value)) {
+    return BigInt(value.replace(/n$/, ""));
+  }
+  if (value && typeof value === "object" && "value" in value) {
+    return bigIntFromValue((value as { value?: unknown }).value);
+  }
+  if (value && typeof value === "object" && typeof value.toString === "function") {
+    const text = value.toString();
+    if (/^-?\d+n?$/.test(text)) return BigInt(text.replace(/n$/, ""));
+  }
+  return null;
 }
 
 function extractBiomeNames(chunk: Record<string, unknown>) {
