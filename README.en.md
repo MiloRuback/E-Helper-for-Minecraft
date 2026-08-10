@@ -95,8 +95,8 @@ The NSIS installer is generated in `release/`.
 Create a tag to trigger the workflow:
 
 ```bash
-git tag v0.1.21
-git push origin v0.1.21
+git tag v0.1.22
+git push origin v0.1.22
 ```
 
 The `.github/workflows/release.yml` workflow publishes:
