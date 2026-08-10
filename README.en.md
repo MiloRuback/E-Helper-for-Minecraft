@@ -95,8 +95,8 @@ The NSIS installer is generated in `release/`.
 Create a tag to trigger the workflow:
 
 ```bash
-git tag v0.1.18
-git push origin v0.1.18
+git tag v0.1.20
+git push origin v0.1.20
 ```
 
 The `.github/workflows/release.yml` workflow publishes:
@@ -114,4 +114,6 @@ npm run build:stable
 node tools/qa/seed-map-ux.mjs
 node tools/qa/skin-library-ux.mjs
 node tools/qa/world-map-ux.mjs
+$env:MASTERGAMMES_WORLD_PATH="C:\path\to\MasterGammes 275"
+node tools/qa/mastergammes-world.mjs
 ```
