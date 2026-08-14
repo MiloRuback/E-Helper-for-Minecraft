@@ -115,6 +115,7 @@ const page = await browser.newPage({ viewport: { width: 1440, height: 920 } });
 try {
   await page.goto(baseUrl, { waitUntil: "networkidle" });
   await page.evaluate(() => {
+    localStorage.clear();
     localStorage.setItem(
       "ehm:settings",
       JSON.stringify({
@@ -283,6 +284,21 @@ try {
   await page.waitForTimeout(350);
   const hudText = await page.locator(".map-hud").innerText();
   assert(/Java Cubiomes|Cubiomes|Bedrock|Fallback/i.test(hudText), "Map HUD lost engine status.");
+
+  assert(await page.locator(".seed-library-panel").isVisible(), "Seed library panel is missing.");
+  assert(await page.getByRole("button", { name: /Salvar seed|Save seed/i }).isVisible(), "Seed save button is missing.");
+  assert(await page.getByRole("button", { name: /Atualizar|Refresh/i }).isVisible(), "Seed refresh button is missing.");
+  await page.getByRole("button", { name: /Salvar seed|Save seed/i }).click();
+  await page.waitForTimeout(450);
+  const savedSeedCards = await page.locator(".seed-library-card").count();
+  assert(savedSeedCards >= 1, "Saving the current seed did not create a library card.");
+  const seedLibraryStorage = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem("ehm:seedLibrary:v1") || "[]")
+  );
+  assert(
+    seedLibraryStorage.some((entry) => entry.seed === "5906562593331154958"),
+    "Saved seed was not persisted in local storage."
+  );
 
   await page.locator(".content").evaluate((node) => {
     node.scrollTop = 0;

@@ -184,6 +184,38 @@ interface CloudSkin {
   updated_at: string;
 }
 
+interface SeedLibraryMetadata {
+  biomeLayer?: SeedBiomeLayer;
+  target?: { x: number; z: number };
+  zoom?: number;
+}
+
+interface SavedSeedEntry {
+  id: string;
+  name: string;
+  seed: string;
+  platform: SeedPlatform;
+  version: string;
+  dimension: SeedDimension;
+  notes: string;
+  metadata: SeedLibraryMetadata;
+  created_at: string;
+  updated_at: string;
+}
+
+interface CloudSeed {
+  id: string;
+  name: string;
+  seed: string;
+  platform: SeedPlatform;
+  mc_version: string;
+  dimension: SeedDimension;
+  notes: string | null;
+  metadata: SeedLibraryMetadata | null;
+  created_at: string;
+  updated_at: string;
+}
+
 interface SavedModpack {
   id: string;
   name: string;
@@ -408,7 +440,7 @@ const navOrder: PageId[] = [
 
 const appChannel =
   import.meta.env.VITE_APP_CHANNEL === "stable" ? "stable" : "development";
-const stableHiddenPages = new Set<PageId>(["blueprints", "modpacks"]);
+const stableHiddenPages = new Set<PageId>(["blueprints", "seed", "world", "modpacks"]);
 
 function t(language: Language, key: keyof (typeof translations)["pt-br"]) {
   return translations[language][key] ?? translations["pt-br"][key];
@@ -461,6 +493,49 @@ function minecraftAvatarCandidates(profile: ProfileState) {
       ].filter(Boolean)
     )
   );
+}
+
+function makeLocalId(prefix: string) {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? `${prefix}-${crypto.randomUUID()}`
+    : `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function seedLibraryIdentity(entry: Pick<SavedSeedEntry, "seed" | "platform" | "version" | "dimension">) {
+  return `${entry.platform}:${entry.version}:${entry.dimension}:${entry.seed.trim()}`;
+}
+
+function upsertSeedLibraryEntry(current: SavedSeedEntry[], entry: SavedSeedEntry) {
+  const identity = seedLibraryIdentity(entry);
+  let replaced = false;
+  const next = current.map((item) => {
+    if (seedLibraryIdentity(item) !== identity) return item;
+    replaced = true;
+    return {
+      ...entry,
+      id: item.id.startsWith("seed-") ? entry.id : item.id,
+      created_at: item.created_at || entry.created_at
+    };
+  });
+  if (!replaced) next.push(entry);
+  return next
+    .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))
+    .slice(0, 16);
+}
+
+function seedEntryFromCloud(row: CloudSeed): SavedSeedEntry {
+  return {
+    id: row.id,
+    name: row.name,
+    seed: row.seed,
+    platform: row.platform,
+    version: row.mc_version,
+    dimension: row.dimension,
+    notes: row.notes ?? "",
+    metadata: row.metadata ?? {},
+    created_at: row.created_at,
+    updated_at: row.updated_at
+  };
 }
 
 function usePersistentState<T>(key: string, initialValue: T) {
@@ -789,11 +864,11 @@ function App() {
 
   return (
     <div className="app-shell">
-      <Titlebar language={language} />
+      <Titlebar language={language} profile={profile} />
       <div className="app-body">
         <aside className="sidebar" aria-label={copy(language, "Navegacao principal", "Main navigation")}>
           <div className="brand-lockup">
-            <PixelLogo />
+            <UserAvatar profile={profile} className="brand-avatar" />
             <div>
               <strong>Every Helper</strong>
               <span>Minecraft</span>
@@ -826,6 +901,8 @@ function App() {
               settings={settings}
               setPage={setPage}
               visiblePages={visibleNavOrder}
+              profile={profile}
+              cloudUser={cloudUser}
             />
           )}
           {page === "skins" && (
@@ -836,7 +913,13 @@ function App() {
             />
           )}
           {page === "blueprints" && <BlueprintEditor language={language} />}
-          {page === "seed" && <SeedMapPage language={language} />}
+          {page === "seed" && (
+            <SeedMapPage
+              language={language}
+              supabase={supabase}
+              cloudUser={cloudUser}
+            />
+          )}
           {page === "world" && <WorldImporter language={language} />}
           {page === "modpacks" && <ModpacksPage language={language} />}
           {page === "profile" && (
@@ -879,11 +962,17 @@ function App() {
   );
 }
 
-function Titlebar({ language }: { language: Language }) {
+function Titlebar({
+  language,
+  profile
+}: {
+  language: Language;
+  profile: ProfileState;
+}) {
   return (
     <header className="titlebar">
       <div className="drag-region">
-        <PixelLogo compact />
+        <UserAvatar profile={profile} compact className="titlebar-avatar" />
         <span>Every Helper for Minecraft</span>
         <small>{t(language, "ready")}</small>
       </div>
@@ -908,6 +997,52 @@ function Titlebar({ language }: { language: Language }) {
   );
 }
 
+function UserAvatar({
+  profile,
+  compact = false,
+  className = ""
+}: {
+  profile: ProfileState;
+  compact?: boolean;
+  className?: string;
+}) {
+  const avatarCandidates = useMemo(() => minecraftAvatarCandidates(profile), [profile]);
+  const avatarKey = avatarCandidates.join("|");
+  const [avatarCandidateIndex, setAvatarCandidateIndex] = useState(0);
+  const avatarSrc = avatarCandidates[avatarCandidateIndex];
+  const label = profile.displayName || profile.minecraftUsername || "Player";
+
+  useEffect(() => {
+    setAvatarCandidateIndex(0);
+  }, [avatarKey]);
+
+  return (
+    <div
+      className={["user-avatar", compact ? "compact" : "", className].filter(Boolean).join(" ")}
+      title={label}
+      aria-label="User avatar"
+    >
+      {avatarSrc ? (
+        <>
+          <User className="user-avatar-fallback" size={compact ? 15 : 24} />
+          <img
+            key={avatarSrc}
+            src={avatarSrc}
+            alt="Avatar Minecraft"
+            onError={() =>
+              setAvatarCandidateIndex((current) =>
+                current + 1 < avatarCandidates.length ? current + 1 : avatarCandidates.length
+              )
+            }
+          />
+        </>
+      ) : (
+        <User size={compact ? 15 : 24} />
+      )}
+    </div>
+  );
+}
+
 function PixelLogo({ compact = false }: { compact?: boolean }) {
   return (
     <div className={compact ? "pixel-logo compact" : "pixel-logo"}>
@@ -923,15 +1058,21 @@ function HomePage({
   account,
   settings,
   setPage,
-  visiblePages
+  visiblePages,
+  profile,
+  cloudUser
 }: {
   language: Language;
   account: LocalAccount | null;
   settings: AppSettings;
   setPage: (page: PageId) => void;
   visiblePages: PageId[];
+  profile: ProfileState;
+  cloudUser: CloudUser | null;
 }) {
   const visiblePageSet = new Set(visiblePages);
+  const displayName = profile.displayName || account?.displayName || "Player";
+  const handle = profile.minecraftUsername ? `@${profile.minecraftUsername}` : "@minecraft";
   const modules = [
     {
       id: "skins" as PageId,
@@ -984,48 +1125,69 @@ function HomePage({
   ].filter((module) => visiblePageSet.has(module.id));
 
   return (
-    <section className="page-grid">
-      <div className="page-heading">
-        <div>
-          <p className="eyebrow">{t(language, "subtitle")}</p>
-          <h1>Every Helper for Minecraft</h1>
-          <p>
-            {language === "pt-br"
-              ? "Uma central desktop para criar, explorar e sincronizar dados de Minecraft com fluxo local primeiro e integracoes opcionais."
-              : "A desktop hub to create, explore and sync Minecraft data with a local-first workflow and optional integrations."}
-          </p>
-        </div>
-        <div className="status-panel">
-          <strong>{account?.displayName ?? "Player"}</strong>
-          <span>{settings.supabaseEnabled ? "Supabase config OK" : "Offline first"}</span>
-          <span>
-            {settings.driveSync
-              ? copy(language, "Drive marcado", "Drive enabled")
-              : copy(language, "Drive opcional", "Drive optional")}
-          </span>
-        </div>
-      </div>
+    <section className="page-grid home-page">
+      <div className="home-layout">
+        <div className="home-main">
+          <div className="page-heading">
+            <div>
+              <p className="eyebrow">{t(language, "subtitle")}</p>
+              <h1>Every Helper for Minecraft</h1>
+              <p>
+                {language === "pt-br"
+                  ? "Uma central desktop para criar, explorar e sincronizar dados de Minecraft com fluxo local primeiro e integracoes opcionais."
+                  : "A desktop hub to create, explore and sync Minecraft data with a local-first workflow and optional integrations."}
+              </p>
+            </div>
+            <div className="status-panel">
+              <strong>{displayName}</strong>
+              <span>{settings.supabaseEnabled ? "Supabase config OK" : "Offline first"}</span>
+              <span>
+                {settings.driveSync
+                  ? copy(language, "Drive marcado", "Drive enabled")
+                  : copy(language, "Drive opcional", "Drive optional")}
+              </span>
+            </div>
+          </div>
 
-      <div className="metric-strip">
-        <Metric label={copy(language, "Modulos", "Modules")} value={String(modules.length)} />
-        <Metric label={copy(language, "Idiomas", "Languages")} value="PT/EN" />
-        <Metric label={copy(language, "Janela minima", "Minimum window")} value="800x500" />
-        <Metric label={copy(language, "Instalador", "Installer")} value="NSIS" />
-      </div>
+          <div className="metric-strip">
+            <Metric label={copy(language, "Modulos", "Modules")} value={String(modules.length)} />
+            <Metric label={copy(language, "Idiomas", "Languages")} value="PT/EN" />
+            <Metric label={copy(language, "Janela minima", "Minimum window")} value="800x500" />
+            <Metric label={copy(language, "Instalador", "Installer")} value="NSIS" />
+          </div>
 
-      <div className="module-grid">
-        {modules.map((module) => (
-          <button
-            className="module-card"
-            key={module.id}
-            onClick={() => setPage(module.id)}
-          >
-            <span className={`tab-cube tab-${module.id}`} />
-            <strong>{module.title}</strong>
-            <span>{module.text}</span>
-            <ChevronRight size={18} />
-          </button>
-        ))}
+          <div className="module-grid">
+            {modules.map((module) => (
+              <button
+                className="module-card"
+                key={module.id}
+                onClick={() => setPage(module.id)}
+              >
+                <span className={`tab-cube tab-${module.id}`} />
+                <strong>{module.title}</strong>
+                <span>{module.text}</span>
+                <ChevronRight size={18} />
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <aside className="home-profile-panel" aria-label={copy(language, "Perfil do usuario", "User profile")}>
+          <UserAvatar profile={profile} className="home-profile-avatar" />
+          <div className="home-profile-copy">
+            <p className="eyebrow">{t(language, "profile")}</p>
+            <h2>{displayName}</h2>
+            <strong>{handle}</strong>
+            <span>{profile.pronouns || copy(language, "pronomes", "pronouns")}</span>
+            <p>{profile.bio || copy(language, "Bio vazia por enquanto.", "No bio yet.")}</p>
+          </div>
+          <div className="home-profile-sync">
+            <span>{cloudUser ? copy(language, "Conta sincronizada", "Cloud account") : t(language, "localMode")}</span>
+            <button onClick={() => setPage("profile")}>
+              <User size={16} /> {t(language, "profile")}
+            </button>
+          </div>
+        </aside>
       </div>
     </section>
   );
@@ -2222,7 +2384,15 @@ type MarkerTooltipState = {
   y: number;
 };
 
-function SeedMapPage({ language }: { language: Language }) {
+function SeedMapPage({
+  language,
+  supabase,
+  cloudUser
+}: {
+  language: Language;
+  supabase: SupabaseClient | null;
+  cloudUser: CloudUser | null;
+}) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [seed, setSeed] = useState("5906562593331154958");
   const [versions, setVersions] = useState(minecraftVersions);
@@ -2238,6 +2408,12 @@ function SeedMapPage({ language }: { language: Language }) {
   const [markerTooltip, setMarkerTooltip] = useState<MarkerTooltipState | null>(null);
   const [visitedMarkers, setVisitedMarkers] = useState<Record<string, boolean>>({});
   const [iconCacheVersion, setIconCacheVersion] = useState(0);
+  const [savedSeeds, setSavedSeeds] = usePersistentState<SavedSeedEntry[]>(
+    "ehm:seedLibrary:v1",
+    []
+  );
+  const [seedLibraryLoading, setSeedLibraryLoading] = useState(false);
+  const [seedLibraryStatus, setSeedLibraryStatus] = useState("");
   const [enabledFeatures, setEnabledFeatures] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(seedFeatureCatalog.map((feature) => [feature.id, true]))
   );
@@ -2332,6 +2508,10 @@ function SeedMapPage({ language }: { language: Language }) {
       setBiomeLayer("surface");
     }
   }, [dimension]);
+
+  useEffect(() => {
+    void loadSeedLibraryFromCloud();
+  }, [supabase, cloudUser?.id]);
 
   useEffect(() => {
     let disposed = false;
@@ -2617,7 +2797,156 @@ function SeedMapPage({ language }: { language: Language }) {
     draw();
   }, [draw, mapExpanded]);
 
+  async function currentSeedSupabaseUser() {
+    if (!supabase) return null;
+    const { data } = await supabase.auth.getUser();
+    return data.user ?? null;
+  }
+
+  function seedDefaultName() {
+    const seedLabel = seed.trim() || "0";
+    const dimensionLabel =
+      seedDimensions.find((item) => item.id === dimension)?.labelPt ?? dimension;
+    return `${seedLabel.slice(0, 18)} ${platform.toUpperCase()} ${version} ${dimensionLabel}`;
+  }
+
+  function currentSeedLibraryEntry(name?: string): SavedSeedEntry {
+    const now = new Date().toISOString();
+    return {
+      id: makeLocalId("seed"),
+      name: name?.trim() || seedDefaultName(),
+      seed: seed.trim() || "0",
+      platform,
+      version,
+      dimension,
+      notes: "",
+      metadata: {
+        biomeLayer: dimension === "overworld" ? biomeLayer : "surface",
+        target: { ...target },
+        zoom
+      },
+      created_at: now,
+      updated_at: now
+    };
+  }
+
+  function rememberCurrentSeed(status?: string) {
+    const entry = currentSeedLibraryEntry();
+    setSavedSeeds((current) => upsertSeedLibraryEntry(current, entry));
+    if (status) setSeedLibraryStatus(status);
+    return entry;
+  }
+
+  async function loadSeedLibraryFromCloud() {
+    if (!supabase) {
+      setSeedLibraryStatus(copy(language, "Biblioteca local pronta.", "Local library ready."));
+      return;
+    }
+    const user = await currentSeedSupabaseUser();
+    if (!user) {
+      setSeedLibraryStatus(copy(language, "Entre no Perfil para sincronizar seeds.", "Sign in on Profile to sync seeds."));
+      return;
+    }
+
+    setSeedLibraryLoading(true);
+    const { data, error } = await supabase
+      .from("user_seeds")
+      .select("id,name,seed,platform,mc_version,dimension,notes,metadata,created_at,updated_at")
+      .eq("user_id", user.id)
+      .order("updated_at", { ascending: false })
+      .limit(16);
+    setSeedLibraryLoading(false);
+    if (error) {
+      setSeedLibraryStatus(error.message);
+      return;
+    }
+    const entries = ((data ?? []) as CloudSeed[]).map(seedEntryFromCloud);
+    setSavedSeeds((current) =>
+      entries.reduce((next, entry) => upsertSeedLibraryEntry(next, entry), current)
+    );
+    setSeedLibraryStatus(
+      entries.length
+        ? copy(language, "Biblioteca de seeds sincronizada.", "Seed library synced.")
+        : copy(language, "Nenhuma seed salva na nuvem ainda.", "No cloud seeds saved yet.")
+    );
+  }
+
+  async function saveCurrentSeedToLibrary() {
+    const entry = rememberCurrentSeed(
+      copy(language, "Seed salva na biblioteca local.", "Seed saved locally.")
+    );
+    if (!supabase) return;
+    const user = await currentSeedSupabaseUser();
+    if (!user) {
+      setSeedLibraryStatus(copy(language, "Seed salva localmente. Entre no Perfil para enviar a nuvem.", "Seed saved locally. Sign in on Profile to upload it."));
+      return;
+    }
+
+    setSeedLibraryLoading(true);
+    await supabase.from("profiles").upsert({
+      id: user.id,
+      display_name: user.email?.split("@")[0] ?? "Player"
+    });
+    const { data, error } = await supabase
+      .from("user_seeds")
+      .upsert(
+        {
+          user_id: user.id,
+          name: entry.name,
+          seed: entry.seed,
+          platform: entry.platform,
+          mc_version: entry.version,
+          dimension: entry.dimension,
+          notes: entry.notes,
+          metadata: entry.metadata
+        },
+        { onConflict: "user_id,seed,platform,mc_version,dimension" }
+      )
+      .select("id,name,seed,platform,mc_version,dimension,notes,metadata,created_at,updated_at")
+      .single();
+    setSeedLibraryLoading(false);
+    if (error) {
+      setSeedLibraryStatus(error.message);
+      return;
+    }
+    if (data) {
+      setSavedSeeds((current) => upsertSeedLibraryEntry(current, seedEntryFromCloud(data as CloudSeed)));
+    }
+    setSeedLibraryStatus(copy(language, "Seed salva e sincronizada na nuvem.", "Seed saved and synced to cloud."));
+  }
+
+  function loadSeedFromLibrary(entry: SavedSeedEntry) {
+    const nextZoom = clampSeedZoom(entry.metadata.zoom ?? DEFAULT_SEED_ZOOM);
+    const nextTarget = entry.metadata.target ?? { x: 0, z: 0 };
+    setSeed(entry.seed);
+    setPlatform(entry.platform);
+    setVersion(entry.version);
+    setDimension(entry.dimension);
+    setBiomeLayer(entry.dimension === "overworld" ? entry.metadata.biomeLayer ?? "surface" : "surface");
+    setTarget(nextTarget);
+    setZoom(nextZoom);
+    setOffset({
+      x: -(nextTarget.x / 16) * SEED_TILE_SIZE * nextZoom,
+      z: -(nextTarget.z / 16) * SEED_TILE_SIZE * nextZoom
+    });
+    setHighlightedBiome("");
+    setSeedLibraryStatus(copy(language, "Seed carregada no mapa.", "Seed loaded into the map."));
+  }
+
+  async function deleteSeedFromLibrary(entry: SavedSeedEntry) {
+    setSavedSeeds((current) => current.filter((item) => item.id !== entry.id));
+    setSeedLibraryStatus(copy(language, "Seed removida da biblioteca local.", "Seed removed from local library."));
+    if (!supabase || entry.id.startsWith("seed-")) return;
+    const { error } = await supabase.from("user_seeds").delete().eq("id", entry.id);
+    if (error) {
+      setSeedLibraryStatus(error.message);
+      return;
+    }
+    setSeedLibraryStatus(copy(language, "Seed removida da nuvem.", "Seed removed from cloud."));
+  }
+
   function locate() {
+    rememberCurrentSeed(copy(language, "Seed pesquisada salva na biblioteca.", "Searched seed saved to library."));
     setOffset({
       x: -(target.x / 16) * SEED_TILE_SIZE * zoom,
       z: -(target.z / 16) * SEED_TILE_SIZE * zoom
@@ -3006,8 +3335,103 @@ function SeedMapPage({ language }: { language: Language }) {
           <span>{copy(language, "Camada de biomas oculta", "Biome layer hidden")}</span>
         )}
       </div>
+      <SeedLibraryPanel
+        language={language}
+        items={savedSeeds}
+        loading={seedLibraryLoading}
+        status={seedLibraryStatus}
+        cloudUser={cloudUser}
+        onSave={() => void saveCurrentSeedToLibrary()}
+        onRefresh={() => void loadSeedLibraryFromCloud()}
+        onLoad={loadSeedFromLibrary}
+        onDelete={(entry) => void deleteSeedFromLibrary(entry)}
+      />
     </section>
   );
+}
+
+function SeedLibraryPanel({
+  language,
+  items,
+  loading,
+  status,
+  cloudUser,
+  onSave,
+  onRefresh,
+  onLoad,
+  onDelete
+}: {
+  language: Language;
+  items: SavedSeedEntry[];
+  loading: boolean;
+  status: string;
+  cloudUser: CloudUser | null;
+  onSave: () => void;
+  onRefresh: () => void;
+  onLoad: (entry: SavedSeedEntry) => void;
+  onDelete: (entry: SavedSeedEntry) => void;
+}) {
+  const visibleItems = items.slice(0, 8);
+
+  return (
+    <div className="seed-library-panel">
+      <div className="seed-library-header">
+        <div>
+          <strong>{copy(language, "Biblioteca de seeds", "Seed library")}</strong>
+          <span>
+            {cloudUser
+              ? copy(language, "Local + Supabase", "Local + Supabase")
+              : copy(language, "Local/offline", "Local/offline")}
+          </span>
+        </div>
+        <div className="seed-library-actions">
+          <button className="primary" onClick={onSave} disabled={loading}>
+            <Save size={16} /> {copy(language, "Salvar seed", "Save seed")}
+          </button>
+          <button onClick={onRefresh} disabled={loading}>
+            <Download size={16} /> {copy(language, "Atualizar", "Refresh")}
+          </button>
+        </div>
+      </div>
+      <div className="seed-library-grid">
+        {visibleItems.length ? (
+          visibleItems.map((entry) => (
+            <article className="seed-library-card" key={entry.id}>
+              <MapIcon size={20} />
+              <div>
+                <strong>{entry.name}</strong>
+                <span>
+                  {entry.seed} | {entry.platform.toUpperCase()} {entry.version} |{" "}
+                  {seedDimensionName(entry.dimension, language)}
+                </span>
+              </div>
+              <button onClick={() => onLoad(entry)}>
+                <LocateFixed size={15} /> {copy(language, "Carregar", "Load")}
+              </button>
+              <button title={copy(language, "Remover", "Delete")} onClick={() => onDelete(entry)}>
+                <Trash2 size={15} />
+              </button>
+            </article>
+          ))
+        ) : (
+          <div className="empty-inline">
+            {copy(language, "Pesquise ou salve uma seed para montar sua biblioteca.", "Search or save a seed to build your library.")}
+          </div>
+        )}
+      </div>
+      <p className="muted">
+        {loading
+          ? copy(language, "Sincronizando seeds...", "Syncing seeds...")
+          : status || copy(language, "As 16 seeds mais recentes ficam guardadas.", "The 16 latest seeds are kept.")}
+      </p>
+    </div>
+  );
+}
+
+function seedDimensionName(dimension: SeedDimension, language: Language) {
+  const item = seedDimensions.find((entry) => entry.id === dimension);
+  if (!item) return dimension;
+  return language === "pt-br" ? item.labelPt : item.labelEn;
 }
 
 function SeedMarkerTooltip({
