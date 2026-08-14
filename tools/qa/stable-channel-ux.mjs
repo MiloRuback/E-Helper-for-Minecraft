@@ -68,11 +68,11 @@ try {
 
   await page.locator(".home-profile-panel").waitFor({ state: "visible" });
   const navText = await page.locator(".nav-list").innerText();
-  assert(!/Seed Map/i.test(navText), "Stable channel still shows Seed Map in navigation.");
+  assert(/Seed Map/i.test(navText), "Stable channel should show Seed Map in navigation.");
   assert(!/Mundos|Worlds/i.test(navText), "Stable channel still shows world maps in navigation.");
 
   const moduleText = await page.locator(".module-grid").innerText();
-  assert(!/Seed Map/i.test(moduleText), "Stable home modules still show Seed Map.");
+  assert(/Seed Map/i.test(moduleText), "Stable home modules should show Seed Map.");
   assert(!/Mundos|Worlds/i.test(moduleText), "Stable home modules still show Worlds.");
 
   assert(await page.locator(".titlebar-avatar").isVisible(), "Titlebar user avatar is missing.");
@@ -85,6 +85,12 @@ try {
   assert(profileText.includes("Desenvolvedora independente"), "Home profile panel does not show bio.");
 
   await assertNoHorizontalOverflow(page, "Desktop stable");
+
+  await page.getByRole("button", { name: "Seed Map", exact: true }).first().click();
+  await page.locator("canvas.seed-canvas").waitFor({ state: "visible" });
+  assert(await page.locator(".seed-library-panel").isVisible(), "Stable Seed Map is missing the seed library.");
+  await page.getByRole("button", { name: "Início", exact: true }).first().click();
+  await page.locator(".home-profile-panel").waitFor({ state: "visible" });
   await page.screenshot({ path: screenshotPath, fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 844 });

@@ -440,7 +440,7 @@ const navOrder: PageId[] = [
 
 const appChannel =
   import.meta.env.VITE_APP_CHANNEL === "stable" ? "stable" : "development";
-const stableHiddenPages = new Set<PageId>(["blueprints", "seed", "world", "modpacks"]);
+const stableHiddenPages = new Set<PageId>(["blueprints", "world", "modpacks"]);
 
 function t(language: Language, key: keyof (typeof translations)["pt-br"]) {
   return translations[language][key] ?? translations["pt-br"][key];
